@@ -1,0 +1,32 @@
+---
+title: "Deployment"
+description: "Pushing migrations and edge functions to production"
+icon: "cloud-arrow-up"
+---
+
+## Link and deploy
+
+```bash
+# Link to remote project
+supabase link --project-ref <your-ref>
+
+# Push migrations
+supabase db push
+
+# Deploy functions
+supabase functions deploy convert-corpus
+```
+
+## Environment variables
+
+Production deployments need the same variables as local development, pointed at the remote project:
+
+| Variable | Purpose |
+| --- | --- |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Anon/publishable key for client-side access |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server/functions only) |
+
+<Warning>
+Never hardcode secrets in source files or commit service role keys to version control.
+</Warning>

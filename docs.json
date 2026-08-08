@@ -1,0 +1,43 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Corpora",
+  "description": "Documentation for Corpora — scholarly text corpus management",
+  "colors": {
+    "primary": "#3ECF8E",
+    "light": "#5EE0A5",
+    "dark": "#2FA873"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["index", "quickstart"]
+      },
+      {
+        "group": "Project",
+        "pages": [
+          "project/overview",
+          "project/specification",
+          "project/quality-checklist"
+        ]
+      },
+      {
+        "group": "Backend",
+        "pages": [
+          "backend/architecture",
+          "backend/api",
+          "backend/database",
+          "backend/commands",
+          "backend/deployment"
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/exegia/corpora-docs"
+    }
+  }
+}

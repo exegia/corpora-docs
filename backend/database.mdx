@@ -1,0 +1,44 @@
+---
+title: "Database Schema"
+description: "The corpora table and how to query it"
+icon: "database"
+---
+
+## The corpora table
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `name` | `text` | Unique identifier |
+| `type` | `text` | bible, commentary, lexicon |
+| `language` | `text` | hebrew, greek, arabic, etc. |
+| `period` | `text` | Historical period |
+| `repository` | `text` | Source URL |
+| `category` | `text[]` | biblical, religious, etc. |
+| `download_uri` | `text` | Storage URL |
+
+## Example queries
+
+```sql
+-- Query corpora by language
+SELECT name, type, language, period
+FROM corpora
+WHERE language = 'hebrew'
+ORDER BY created_at DESC;
+```
+
+## Security
+
+- **Row-level security** is enabled on the `corpora` table.
+- **Reads are public** — anyone with the anon key can query corpora.
+- **Writes are auth-protected** — inserting, updating, or deleting rows requires authentication.
+
+## Migrations and seeds
+
+- Database schema lives in ordered SQL migrations under `supabase/migrations/`.
+- Seed data provides **30+ pre-loaded corpora** under `supabase/seeds/` for local development and testing.
+
+```bash
+# Reset the database and re-run all migrations + seeds
+supabase db reset
+```

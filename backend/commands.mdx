@@ -1,0 +1,53 @@
+---
+title: "Common Commands"
+description: "Deno tasks and Supabase CLI commands for everyday development"
+icon: "terminal"
+---
+
+## Deno tasks
+
+Quick shortcuts defined in `deno.json`:
+
+```bash
+# Stack lifecycle
+deno task start             # Start Supabase
+deno task stop              # Stop Supabase
+deno task restart           # Restart Supabase
+deno task status            # Show Supabase status
+
+# Database
+deno task db:reset          # Reset database (migrations + seeds)
+deno task db:migrate        # Create new migration
+deno task db:seed           # Apply seed data
+deno task db:push           # Push migrations to remote
+
+# Functions
+deno task functions:serve   # Serve all functions
+deno task functions:check   # Type check all functions
+deno task functions:deploy  # Deploy functions
+deno task functions:new     # Create new function
+
+# Development
+deno task dev               # Run dev server with --watch
+deno task studio            # Open Studio UI
+deno task logs              # Watch function logs (debug mode)
+deno task test              # Run Deno tests
+```
+
+## Direct Supabase CLI
+
+```bash
+# Database
+supabase db reset               # Reset database (migrations + seeds)
+supabase migration new <name>   # Create new migration
+
+# Functions
+supabase functions serve                   # Serve all functions
+deno check supabase/functions/*/index.ts   # Type check
+supabase functions deploy <name>           # Deploy specific function
+
+# Utilities
+supabase start              # Start Supabase
+supabase stop               # Stop Supabase
+supabase status             # Show service URLs and keys
+```

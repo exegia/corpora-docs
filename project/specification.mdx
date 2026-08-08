@@ -1,0 +1,104 @@
+---
+title: "MVP Specification"
+description: "User stories, functional requirements, and success criteria for the Corpora MVP"
+icon: "clipboard-list"
+---
+
+**Feature branch:** `001-corpora-mvp` · **Status:** Draft
+
+## User stories
+
+### 1. Upload new corpus dataset (P1)
+
+A researcher has a corpus file (PDF, plain text, or structured XML/TEI) they want to ingest. They open the Corpora admin app, trigger the upload workflow, provide metadata (title, language, source, corpus type), and submit the file. The system ingests the file, converts it to the internal storage format, and makes it available in the corpus library.
+
+**Why P1:** Without upload, no data exists in the system. All other operations depend on having corpora available.
+
+**Acceptance scenarios:**
+
+1. Uploading a PDF with title, language, and source metadata makes the corpus appear in the library with all metadata, and its content viewable.
+2. Submitting an unsupported file format shows a clear error listing accepted formats without corrupting existing data.
+3. Submitting without required metadata highlights missing fields and prevents saving until they are populated.
+
+### 2. Browse and view corpus library (P2)
+
+A researcher opens the app and sees a list of all available corpora. They can browse, filter by language or corpus type, and select an entry to view its full content and metadata.
+
+**Acceptance scenarios:**
+
+1. With 50+ entries, the library displays title, language, and corpus type for each, and remains responsive.
+2. Filtering by "Hebrew" shows only Hebrew corpora with an updated count.
+3. Selecting an entry opens a detail view with full metadata and scrollable content.
+
+### 3. Edit corpus metadata and content (P3)
+
+A researcher corrects an error in an entry's metadata or text content: select the entry, enter edit mode, make corrections, and save. The system preserves the previous state so the change can be tracked.
+
+**Acceptance scenarios:**
+
+1. Updating title and language in edit mode saves and reflects immediately in the library list.
+2. Closing the app without saving leaves the original entry unchanged, with a prompt about unsaved changes before closing.
+
+### 4. Delete or archive corpus entry (P4)
+
+A researcher removes a duplicate or deprecated entry: select it, choose delete or archive, confirm, and the entry is removed from the active library.
+
+**Acceptance scenarios:**
+
+1. Confirming deletion removes the entry from the library and shows a confirmation.
+2. Cancelling the confirmation dialog leaves the entry unchanged.
+
+## Edge cases
+
+- A corpus file exceeds available local storage space
+- The local database becomes corrupted
+- A duplicate corpus is uploaded (same title and source)
+- Very large files (100MB+ PDFs) during upload and display
+- The app is force-quit during an active upload
+
+## Functional requirements
+
+| ID | Requirement |
+| --- | --- |
+| FR-001 | Allow upload of corpus files in PDF, plain text (.txt), and TEI/XML formats |
+| FR-002 | Require title, language, and source metadata before saving an entry |
+| FR-003 | Display all entries in a browsable list with title, language, and corpus type |
+| FR-004 | Filter the library by language and by corpus type |
+| FR-005 | View the full content and metadata of any entry |
+| FR-006 | Edit the metadata and text content of any existing entry |
+| FR-007 | Persist all edits across app restarts |
+| FR-008 | Delete or archive an entry with a confirmation step |
+| FR-009 | Warn about unsaved changes before closing the editor |
+| FR-010 | Operate fully offline — no internet required for any core operation |
+| FR-011 | Remain responsive with 100+ entries in the library |
+| FR-012 | Display actionable errors for unsupported formats, missing metadata, and storage failures |
+| FR-013 | Support Hebrew, Greek, Syriac, Arabic, Aramaic, Latin, and English corpora |
+
+## Key entities
+
+- **Corpus Dataset** — a single ingested corpus: title, language, source, corpus type (manuscript, biblical text, lexicon, commentary), content, created date, last modified date.
+- **Metadata Record** — descriptive information attached to a Corpus Dataset: title, author/source, language, corpus type, notes/annotations.
+- **Upload Job** — tracks a file ingestion in progress: file name, file type, status (pending, processing, complete, failed), error message.
+
+## Success criteria
+
+| ID | Measurable outcome |
+| --- | --- |
+| SC-001 | Upload appears in the library, fully searchable, in under 30 seconds for files up to 50 MB |
+| SC-002 | The library loads and displays 100+ entries in under 2 seconds |
+| SC-003 | Full upload-to-view workflow completable in under 3 minutes on first use, without instruction |
+| SC-004 | All core operations work with no internet connection, 100% of the time |
+| SC-005 | Search/filter results return in under 1 second for a library of 500 entries |
+| SC-006 | Zero data loss during normal CRUD operations; edits persist across restarts with 100% fidelity |
+
+## Assumptions
+
+- Single researcher/administrator operating locally on macOS; multi-user access is out of scope for MVP.
+- Authentication is not required for local-only MVP use; access control comes in a future phase.
+- Corpus files come from the local file system; remote URL ingestion is out of scope.
+- Accepted file size limit is 200 MB per upload.
+- "Archive" is a soft-delete (hidden but retained); permanent deletion destroys the record.
+- Corpus type taxonomy for MVP: biblical text, manuscript, lexicon, commentary, historical text.
+- Corpora are stored in the internal `.exg` envelope format; raw source files are not exposed in the UI.
+- Version history beyond "last saved" is a Phase 2 feature.
+- Seed data (30+ pre-loaded corpora) is present in development for testing Story 2 independently.

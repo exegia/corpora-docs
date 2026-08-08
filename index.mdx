@@ -1,0 +1,53 @@
+---
+title: "Introduction"
+description: "Corpora — a secure, offline-first platform for managing scholarly text corpora"
+icon: "book-open"
+---
+
+**Corpora** is a full-stack application for managing scholarly text corpora — manuscripts, biblical texts, Quranic texts, lexical data, and more. It combines a Supabase-powered backend with a native macOS admin application for seamless corpus curation and research.
+
+## What is Corpora?
+
+Corpora provides an accessible platform for scholars, researchers, and language enthusiasts to work with, analyze, and manage large text corpora in a secure, offline-first sandbox environment — a safe, isolated space for experimenting with text data without affecting production systems.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get the backend running locally in minutes
+  </Card>
+  <Card title="Project Overview" icon="compass" href="/project/overview">
+    Vision, architecture, and target users
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/backend/architecture">
+    How the backend converts and serves corpora
+  </Card>
+  <Card title="API Reference" icon="code" href="/backend/api">
+    Upload, convert, and query corpora over REST
+  </Card>
+</CardGroup>
+
+## Features
+
+| 🚀 Edge Functions | 🗄️ PostgreSQL Database | 📦 Storage | 🔒 Security |
+| --- | --- | --- | --- |
+| Async corpus conversion | 30+ pre-loaded corpora | S3-compatible storage | Row-level security |
+| Background processing | Full-text search | `.exg` format support | Public read access |
+| REST API endpoints | Type-safe schema | Automatic backups | Auth-protected writes |
+
+**Supported languages:** Hebrew, Greek, Syriac, Arabic, Aramaic, Latin, English, and more.
+
+**Corpus types:** Biblical texts, commentaries, lexicons, and historical manuscripts.
+
+<Note>
+The backend uses **Deno exclusively** for all TypeScript code and Edge Functions. No Node.js or Bun required.
+</Note>
+
+## The two stacks
+
+<Steps>
+  <Step title="Supabase backend (TypeScript / Deno)">
+    Edge functions, database migrations, seeds, and storage for converting and serving corpus datasets. See the [Backend section](/backend/architecture).
+  </Step>
+  <Step title="macOS admin app (SwiftUI)">
+    A native macOS interface for uploading, browsing, editing, and managing corpus datasets. See the [Project Overview](/project/overview) for its scope and features.
+  </Step>
+</Steps>

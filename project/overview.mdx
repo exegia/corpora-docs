@@ -1,0 +1,127 @@
+---
+title: "Project Overview"
+description: "Vision, architecture, and scope of the Corpora MVP"
+icon: "compass"
+---
+
+## Overview
+
+- **Project name:** Corpora
+- **Type:** Full-stack application with dual-stack architecture
+- **Status:** MVP (Minimum Viable Product)
+- **Primary goal:** Provide a secure local development environment and admin interface for managing scholarly text corpora — manuscripts, biblical texts, Quranic texts, lexical data, and more.
+
+## Purpose and vision
+
+- **Core mission:** Create an accessible platform for scholars, researchers, and language enthusiasts to work with, analyze, and manage large text corpora in a secure, offline-first sandbox environment.
+- **Value proposition:** Combines local-first development infrastructure with a native macOS management interface for seamless corpus curation and research.
+- **Key philosophy:** A safe, isolated sandbox for experimenting with text data without affecting production systems.
+
+## Architecture
+
+### Stack 1: TypeScript/Deno local development sandbox
+
+A local, safe development environment mirroring Supabase functionality — database storage, authentication, and edge functions mapped locally.
+
+**Responsibilities:**
+
+- Abstract Supabase interactions
+- Provide a local authentication sandbox
+- Enable offline edge function development and testing
+- Serve as a development proxy for database operations
+
+The MVP phase focuses on core connectivity and basic CRUD operations.
+
+### Stack 2: macOS SwiftUI admin application
+
+A native admin interface for corpus management and data curation, built with Swift and SwiftUI.
+
+**Core MVP features:**
+
+| Operation | Description |
+| --- | --- |
+| Upload | Ingest new datasets, manuscripts, PDFs (Bible, Quran, etc.) |
+| View | Browse and inspect corpus content with metadata |
+| Edit | Modify, annotate, or correct text data |
+| Update | Manage versions and revisions of corpora |
+| Delete | Remove or archive datasets safely |
+
+The MVP focuses on admin operations; it is not (yet) a user-facing research interface.
+
+## Target users
+
+**Primary audience:**
+
+- Scholars and academic researchers working with manuscripts
+- Linguists analyzing lexicons and language data
+- Biblical and religious studies researchers
+- Manuscript enthusiasts and paleography students
+- Language learners interested in text fabric research
+
+**Secondary audience:**
+
+- Researchers preparing publications or thesis work
+- Digital humanities projects requiring text corpora
+- Theological and historical research initiatives
+
+**Use cases:**
+
+- Offline scholarly research on sacred texts
+- Corpus preparation for NLP or computational linguistics
+- Manuscript digitization and cataloging
+- Lexical analysis and linguistic research
+
+## Scope
+
+### In scope (MVP)
+
+- Local Supabase sandbox environment (TypeScript/Deno)
+- macOS SwiftUI admin application
+- Core CRUD operations for corpora
+- Basic authentication and access control
+- File upload and ingestion pipeline
+- Metadata management (title, source, language, etc.)
+
+### Out of scope (future phases)
+
+- Web-based UI for corpus access
+- Multi-platform support (Windows, Linux, iOS)
+- Advanced research analytics or visualizations
+- Collaborative/multi-user features
+- Public sharing or distribution features
+- AI-powered analysis tools
+
+## Success criteria (MVP)
+
+- Local Supabase sandbox runs without errors
+- macOS app successfully connects to the local sandbox
+- Users can upload PDF/text files to the sandbox
+- Users can view, edit, and delete corpus entries
+- Metadata (title, language, source) is persisted and retrievable
+- App is performant with 100+ corpus entries
+- All operations work offline — no internet required
+
+## Timeline and phasing
+
+<Steps>
+  <Step title="Phase 1 (MVP)">
+    Local Deno sandbox + basic macOS app: sandbox scaffolding and database schema, SwiftUI UI and file upload, then integration, testing, and polish.
+  </Step>
+  <Step title="Phase 2">
+    Advanced editing and annotation tools.
+  </Step>
+  <Step title="Phase 3">
+    Research and analysis dashboard.
+  </Step>
+  <Step title="Phase 4">
+    Web interface or collaborative features.
+  </Step>
+</Steps>
+
+## Development notes
+
+- **Language priorities:** TypeScript for full-stack consistency, Swift for native performance
+- **Offline-first:** All critical features work without network connectivity
+- **Data safety:** Local encryption option for sensitive manuscripts (future)
+- **Extensibility:** Designed for future corpus types and metadata schemas
+- **UX priority:** The admin app should be intuitive for non-technical scholars

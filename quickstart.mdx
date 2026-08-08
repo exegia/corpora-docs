@@ -1,0 +1,103 @@
+---
+title: "Quickstart"
+description: "Get the Corpora backend running locally"
+icon: "rocket"
+---
+
+## Prerequisites
+
+Install the required tooling:
+
+```bash
+# Install Supabase CLI
+brew install supabase/tap/supabase
+
+# Install Deno (only runtime needed)
+brew install deno
+```
+
+You also need [Docker Desktop](https://www.docker.com/products/docker-desktop), which Supabase local development requires.
+
+## Setup
+
+```bash
+# Start Supabase
+supabase start
+
+# Get your API keys
+supabase status
+```
+
+## Local development
+
+```bash
+# Serve Edge Functions
+supabase functions serve
+
+# Open Studio
+open http://localhost:54323
+
+# Run dev server (optional)
+deno run --allow-net --allow-env index.ts
+```
+
+## Environment variables
+
+Edge Functions automatically load environment variables from `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+Get the keys from `supabase status`:
+
+```env
+SUPABASE_URL=http://localhost:54321
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+## Local services
+
+| Service | URL |
+| --- | --- |
+| API | `http://localhost:54321` |
+| Studio | `http://localhost:54323` |
+| Database | `postgresql://localhost:54322` |
+| Dev Server | `http://localhost:3000` |
+
+## Project structure
+
+```text
+exegia-backend/
+├── supabase/
+│   ├── functions/          # Edge Functions (Deno)
+│   │   └── convert-corpus/ # Corpus conversion API
+│   ├── migrations/         # Database schema
+│   └── seeds/              # 30+ pre-loaded corpora
+└── index.ts                # Local dev server
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Supabase won't start">
+    - Ensure Docker is running
+    - Check ports: `lsof -i :54321,54322,54323`
+    - Reset: `supabase stop && supabase start`
+  </Accordion>
+  <Accordion title="Function errors">
+    - Check logs: `supabase functions serve --debug`
+    - Verify env vars: `cat .env.local`
+  </Accordion>
+  <Accordion title="Database issues">
+    - Reset: `supabase db reset`
+    - Connect directly: `psql postgresql://postgres:postgres@localhost:54322/postgres`
+  </Accordion>
+</AccordionGroup>
+
+## Resources
+
+- [Supabase Docs](https://supabase.com/docs)
+- [Deno Manual](https://docs.deno.com)
+- [Text-Fabric Docs](https://annotation.github.io/text-fabric/)

@@ -1,0 +1,49 @@
+---
+title: "Architecture"
+description: "How the Supabase-powered backend converts, stores, and serves corpora"
+icon: "sitemap"
+---
+
+The backend converts, stores, and serves 30+ pre-loaded text corpora with a REST API, built on Supabase, PostgreSQL, and Deno.
+
+## System overview
+
+```text
+┌─────────────┐         ┌──────────────┐         ┌──────────────┐
+│   Frontend  │────────▶│   Supabase   │────────▶│  PostgreSQL  │
+│  (React)    │  REST   │ Edge Function│   SQL   │   Database   │
+└─────────────┘         └──────────────┘         └──────────────┘
+                               │
+                               ▼
+                        ┌──────────────┐
+                        │   Storage    │
+                        │  (.exg files)│
+                        └──────────────┘
+```
+
+## Corpus conversion flow
+
+<Steps>
+  <Step title="Upload">
+    Client sends `POST /functions/v1/convert-corpus` with `multipart/form-data` containing `corpus.zip` plus metadata.
+  </Step>
+  <Step title="Edge Function receives the request">
+    The function validates file type, metadata, and size; generates a `job_id` (UUID); writes the file to ephemeral `/tmp` storage; uploads it to Storage at `uploads/job_id.zip`; and immediately returns **202 Accepted** with the `job_id`.
+  </Step>
+  <Step title="Background processing">
+    Via `EdgeRuntime.waitUntil`, the function reads the zip, detects the format (EPUB, PDF, TEI, XML, or plain text), and builds the `.exg` envelope:
+
+    - `manifest.json` — metadata and node types
+    - `index.json` — file listing
+    - `corpus.exgc` — compressed source
+
+    It then uploads the result to Storage at `datasets/{name}.exg`, deletes the temporary upload, and inserts a row into the `corpora` table.
+  </Step>
+  <Step title="Complete">
+    The corpus is available via the REST API at `/rest/v1/corpora` and via Storage at `/storage/v1/object/public/corpora/datasets/{name}.exg`.
+  </Step>
+</Steps>
+
+## The .exg format
+
+Corpora are stored in an internal `.exg` envelope format — a packaged archive containing the manifest, index, and compressed source content. Direct access to raw source files is not exposed in the UI.

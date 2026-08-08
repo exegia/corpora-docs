@@ -1,0 +1,53 @@
+---
+title: "API Reference"
+description: "Upload, convert, and query corpora over REST"
+icon: "code"
+---
+
+## Upload and convert a corpus
+
+Send a `multipart/form-data` request with the corpus archive and its metadata:
+
+```bash
+curl -X POST http://localhost:54321/functions/v1/convert-corpus \
+  -F "file=@corpus.zip" \
+  -F "name=my-corpus" \
+  -F "type=bible" \
+  -F "language=hebrew" \
+  -F "period=Biblical" \
+  -F "repository=https://github.com/..." \
+  -F "category=biblical"
+```
+
+The request returns immediately while conversion continues in the background:
+
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "processing"
+}
+```
+
+## Query corpora
+
+```bash
+# Get all corpora
+curl http://localhost:54321/rest/v1/corpora \
+  -H "apikey: YOUR_ANON_KEY"
+
+# Filter by language
+curl "http://localhost:54321/rest/v1/corpora?language=eq.hebrew" \
+  -H "apikey: YOUR_ANON_KEY"
+```
+
+<Tip>
+The REST API is standard PostgREST — any PostgREST filter syntax (`eq.`, `ilike.`, `in.`, ordering, pagination) works on the `corpora` table.
+</Tip>
+
+## Download a converted corpus
+
+Converted `.exg` files are publicly readable from Storage:
+
+```text
+/storage/v1/object/public/corpora/datasets/{name}.exg
+```
