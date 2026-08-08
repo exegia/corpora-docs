@@ -79,13 +79,15 @@
 
 ### MVP Deliverables
 
-**Supabase Local Sandbox (TypeScript/Deno)**
+#### Supabase Local Sandbox (TypeScript/Deno)**
+
 - Local mirror of Supabase database schema
 - Authentication simulation (API key, session management)
 - Edge function emulation
 - Simple CLI or dev-server interface for local testing
 
-**macOS Admin App (SwiftUI)**
+#### macOS Admin App (SwiftUI)**
+
 - Clean, native macOS UI for corpus management
 - File upload interface (PDF, text, structured data)
 - Search/browse functionality for existing corpora

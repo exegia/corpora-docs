@@ -1,7 +1,5 @@
 # Exegia Backend
 
-<div align="center">
-
 > 🔷 **Supabase-powered backend for academic corpus management**
 
 Convert, store, and serve 30+ pre-loaded text corpora with a REST API
@@ -10,8 +8,6 @@ Convert, store, and serve 30+ pre-loaded text corpora with a REST API
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Deno](https://img.shields.io/badge/Deno-000000?style=for-the-badge&logo=deno&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-
-</div>
 
 ---
 
@@ -33,7 +29,7 @@ Convert, store, and serve 30+ pre-loaded text corpora with a REST API
 
 ## Architecture
 
-```
+```text
 ┌─────────────┐         ┌──────────────┐         ┌──────────────┐
 │   Frontend  │────────▶│   Supabase   │────────▶│  PostgreSQL  │
 │  (React)    │  REST   │ Edge Function│   SQL   │   Database   │
@@ -48,7 +44,7 @@ Convert, store, and serve 30+ pre-loaded text corpora with a REST API
 
 ### 📤 Corpus Conversion Flow
 
-```
+```text
 1. Upload
    │
    ├─▶ POST /functions/v1/convert-corpus
@@ -127,7 +123,7 @@ deno run --allow-net --allow-env index.ts
 
 ## Project Structure
 
-```
+```text
 exegia-backend/
 ├── supabase/
 │   ├── functions/          # Edge Functions (Deno)
@@ -141,7 +137,7 @@ exegia-backend/
 
 ### 📊 Supabase Studio
 
-> Open at http://localhost:54323 to manage your database
+> Open at <http://localhost:54323> to manage your database
 
 ![Supabase Studio](https://supabase.com/dashboard/img/supabase-studio.png)
 
@@ -276,10 +272,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 | Service    | URL                          |
 | ---------- | ---------------------------- |
-| API        | http://localhost:54321       |
-| Studio     | http://localhost:54323       |
+| API        | <http://localhost:54321>       |
+| Studio     | <http://localhost:54323>       |
 | Database   | postgresql://localhost:54322 |
-| Dev Server | http://localhost:3000        |
+| Dev Server | <http://localhost:3000>        |
 
 ## Deployment
 
@@ -324,7 +320,7 @@ supabase functions deploy convert-corpus
 
 Visit `http://localhost:3000` for service overview:
 
-```
+```text
 🔷 Exegia Backend - Development Server
 
 Server running at:    http://localhost:3000
