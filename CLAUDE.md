@@ -11,7 +11,7 @@ This repo contains two products:
 
 ## Repository Structure
 
-```
+```text
 exegia-backend/
 ├── macOS/                        # Swift macOS app (XcodeGen-managed)
 │   ├── Sources/Corpora/          # All app source code
@@ -51,7 +51,7 @@ exegia-backend/
 ### Tech Stack
 
 | Concern | Library |
-|---|---|
+| --- | --- |
 | UI | SwiftUI (macOS 15+) |
 | State | `@Observable` / `@Bindable` (Swift 5.9 Observation) |
 | Backend | [supabase-swift](https://github.com/supabase/supabase-swift) v2.5+ |
@@ -99,7 +99,7 @@ XcodeGen reflects the filesystem directory structure as Xcode groups. **All orga
 
 ### Architecture
 
-```
+```text
 ContentView (NavigationSplitView)
 ├── Sidebar: NavigationItem list
 └── Detail: view-per-NavigationItem
@@ -110,7 +110,8 @@ ContentView (NavigationSplitView)
     └── ArchivalLedgerView
 ```
 
-**State flow:**
+#### State flow
+
 - `DatasetListViewModel` — owned by `ContentView`, passed down where needed.
 - Feature ViewModels are `@Observable` classes, owned by the view that needs them via `@State`.
 - Service calls go through `DatasetService.shared` (singleton wrapping `SupabaseService.shared.client`).
@@ -119,10 +120,10 @@ ContentView (NavigationSplitView)
 
 ## Supabase Backend
 
-### Tech Stack
+### Backend Tech Stack
 
 | Concern | Detail |
-|---|---|
+| --- | --- |
 | Runtime | Deno (edge functions) |
 | Database | PostgreSQL 17 (local port 54322, API port 54321) |
 | Auth | Supabase Auth |
@@ -132,7 +133,7 @@ ContentView (NavigationSplitView)
 ### Edge Functions
 
 | Function | Trigger | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `convert-corpus` | POST `{ dataset_id }` | Converts uploaded ZIP → `.exg` archive in `corpus` bucket |
 | `enrich-metadata` | POST `{ dataset_id }` | AI enrichment of dataset metadata |
 | `generate-description` | POST `{ dataset_id }` | Generates description via AI |
@@ -166,7 +167,7 @@ Secrets are managed with **dotenvx** — all values in `.env` and `.env.producti
 
 Every new feature lives in its own folder under `Features/`:
 
-```
+```text
 Features/
 └── <Domain>/
     └── <FeatureName>/
@@ -184,7 +185,7 @@ Keep the View, ViewModel, and any feature-private types in the same folder. Do n
 Any type used across **two or more features** — views, components, models, enums, utilities — belongs in the appropriate shared directory, not inside a feature folder:
 
 | Type | Location |
-|---|---|
+| --- | --- |
 | Data models | `Models/` |
 | Service layer | `Services/` |
 | Reusable views / components | `Views/Components/` |
@@ -238,12 +239,13 @@ This file is the living documentation for the feature. Update it whenever the fe
 This project uses [dotenvx](https://dotenvx.com) to encrypt secrets at rest.
 
 | File | Committed? | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `.env` | ✅ yes — encrypted | Dev secrets (local Supabase, Apple team ID, OpenAI) |
 | `.env.production` | ✅ yes — encrypted | Production secrets |
 | `.env.keys` | ❌ **never** — plaintext keys | Private decryption keys for both files |
 
 **Workflow:**
+
 1. Edit a value in `.env` or `.env.production` in plaintext.
 2. Run `dotenvx encrypt` to re-encrypt the file before committing.
 3. The decryption key stays in `.env.keys` locally — never push it.
@@ -257,7 +259,7 @@ All `deno task` commands run through `dotenvx run --` which decrypts values at p
 Key variables:
 
 | Variable | Purpose |
-|---|---|
+| --- | --- |
 | `DEVELOPMENT_TEAM` | Apple Developer team ID for code signing |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Anon/publishable key for client-side auth |
