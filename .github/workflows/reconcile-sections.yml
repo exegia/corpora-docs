@@ -1,0 +1,42 @@
+name: Reconcile sections registry
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "sections/**"
+  workflow_dispatch:
+
+jobs:
+  reconcile:
+    name: Check sections registry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Validate section YAML files
+        run: |
+          set -euo pipefail
+          missing=()
+          for f in sections/*.yml; do
+            [ -f "$f" ] || continue
+            slug=$(grep '^slug:' "$f" | awk '{print $2}')
+            status=$(grep '^status:' "$f" | awk '{print $2}')
+            if [ "$status" = "active" ] && [ ! -d "content/$slug" ]; then
+              echo "::warning file=$f::Section '$slug' is active but content/$slug submodule is missing"
+              missing+=("$slug")
+            else
+              echo "✓ $slug ($status)"
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo ""
+            echo "The following active sections are missing their submodules: ${missing[*]}"
+            echo "Run: git submodule add https://github.com/exegia/<slug> content/<slug>"
+            exit 1
+          fi

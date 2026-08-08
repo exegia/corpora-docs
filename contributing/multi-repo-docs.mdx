@@ -1,0 +1,118 @@
+---
+title: "Multi-repo docs strategy"
+description: "How content from separate exegia repositories is aggregated into this Mintlify site."
+icon: "git-branch"
+---
+
+This page records the decisions made in [issue #3](https://github.com/exegia/corpora-docs/issues/3) and serves as the authoritative reference for anyone setting up docs in a new exegia repo.
+
+## Chosen approach
+
+**One Mintlify project, one deploy branch, multiple source directories managed as git submodules.**
+
+Each exegia repository that wants a section on the org docs site:
+
+1. Maintains its own `docs/` directory with `.mdx` files and a local `docs.json` for standalone preview.
+2. Files a _section request_ by opening a PR that adds `sections/<slug>.yml` to this repository (see [Filing a section request](#filing-a-section-request)).
+3. Is pulled into this repository as a git submodule at `content/<slug>/` by the docs maintainer.
+4. Gets its navigation group merged into `docs.json` under the appropriate tab.
+
+Mintlify's GitHub App watches only this repository's `main` branch and rebuilds on every push — no extra CI required.
+
+### Why this approach
+
+| Option | Verdict |
+|--------|---------|
+| Separate Mintlify projects linked via external anchors | ❌ Requires Enterprise plan for custom subpaths; deep links between sections are fragile. |
+| Single project with submodule-synced content (this approach) | ✅ Free plan compatible, one canonical URL, cross-section linking works natively. |
+| Mirror/copy content at CI time | ❌ Adds CI complexity, creates stale-content risk, and conflicts with Mintlify's GitHub App model. |
+
+<Note>
+`mint export` (static build for GitHub Pages) is Enterprise-gated. This approach avoids that dependency entirely.
+</Note>
+
+## Repository layout
+
+```text
+corpora-docs/              ← this repo (exegia/corpora-docs)
+├── docs.json              # single source of truth for navigation
+├── sections/              # registry of pending + active section requests
+│   └── <slug>.yml
+├── content/               # git submodules, one per connected repo
+│   └── <slug>/            # → e.g. exegia/corpora-auth docs/
+├── index.mdx
+├── quickstart.mdx
+├── project/               # platform docs (owned by this repo)
+└── backend/
+```
+
+## Filing a section request
+
+Any exegia repo can request a docs section by opening a PR against this repository that adds a file at `sections/<slug>.yml`:
+
+```yaml
+# sections/corpora-auth.yml
+slug: corpora-auth
+repo: exegia/corpora-auth
+docs_path: docs
+label: "Auth"
+icon: lock
+status: pending   # pending | active | archived
+requested_by: "@author"
+requested_at: "2026-08-08"
+nav_tab: null     # set by docs maintainer when activating
+```
+
+The PR description should link to the source `docs/` directory so the maintainer can review navigation structure before merging.
+
+## Activating a section
+
+When a section request is approved, the docs maintainer:
+
+<Steps>
+  <Step title="Add the submodule">
+    ```bash
+    git submodule add https://github.com/exegia/<slug> content/<slug>
+    git submodule update --init --recursive
+    ```
+  </Step>
+  <Step title="Connect the Mintlify GitHub App">
+    In the [Mintlify dashboard](https://dashboard.mintlify.com), add the source repo (`exegia/<slug>`) as a connected repository with path `/docs`, then set the deploy branch to `main`.
+
+    Until this step is complete, changes to the submodule source repo will not trigger rebuilds automatically. The workaround is to manually update the submodule pin via a commit to this repo.
+  </Step>
+  <Step title="Merge the nav into docs.json">
+    Copy the `navigation.groups` (or `navigation.tabs`) block from the source repo's `docs.json` into this repo's `docs.json`, updating all page paths to be prefixed with `content/<slug>/`.
+
+    Example — if `corpora-auth/docs/index.mdx` becomes `content/corpora-auth/index` in navigation.
+  </Step>
+  <Step title="Update the section YAML">
+    Set `status: active` and fill in `nav_tab` in `sections/<slug>.yml`, then open a PR.
+  </Step>
+</Steps>
+
+## Sections registry
+
+The files in `sections/` are the single source of truth for what repos have requested or hold a docs section:
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Request filed; Mintlify App not yet connected, content not yet submoduled. |
+| `active` | Submodule present, nav merged, App connected — section is live. |
+| `archived` | Previously active; submodule removed and nav entries deleted. |
+
+## Enterprise plan and `mint export`
+
+The chosen approach does **not** require the Enterprise plan. `mint export` is only needed for self-hosted / GitHub Pages deployments, which are not used here. The Mintlify GitHub App deployment (free tier) is sufficient.
+
+If Mintlify ever changes pricing in a way that breaks this, the fallback is to adopt a CI-driven content mirror (option C above) using a GitHub Actions workflow that copies `docs/` from each source repo into `content/<slug>/` on a schedule or on repository_dispatch.
+
+## Reconciler
+
+A lightweight GitHub Actions workflow at `.github/workflows/reconcile-sections.yml` runs on every push to `main` (when `sections/` changes) and:
+
+1. Reads every `sections/*.yml` file.
+2. For each `status: active` entry, verifies the corresponding submodule exists at `content/<slug>`.
+3. Emits a `::warning` annotation and fails the job if a submodule is missing (activation was not completed).
+
+The reconciler is informational only — it does not push changes or open PRs. A failing job serves as a reminder that a pending activation step needs to be completed.
