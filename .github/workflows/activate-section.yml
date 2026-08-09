@@ -135,7 +135,15 @@ jobs:
           Pins $repo at content/$slug and merges its navigation into docs.json.
 
           Automated by .github/workflows/activate-section.yml."
-            git push --force-with-lease origin "$branch"
+            # Plain --force, not --force-with-lease. The branch is bot-owned
+            # and rebuilt from origin/main every run, so there is no
+            # concurrent-writer to protect against — and a lease cannot work
+            # here anyway: actions/checkout fetches one ref, so on a re-run
+            # (activation PR opened but not yet merged, another sections/**
+            # push arrives) there is no remote-tracking ref for the branch and
+            # the push is rejected with "stale info", aborting the step under
+            # `set -e` before the PR can be updated.
+            git push --force origin "$branch"
 
             # The App connection is the one step no API can perform, so it is
             # the PR's first line rather than a footnote. An 'active' status

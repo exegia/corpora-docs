@@ -190,7 +190,13 @@ def merge(docs: dict, section: Section, source_nav: dict) -> dict:
 
 
 def has_section_pages(docs: dict, section: Section) -> bool:
-    """Does `docs.json` already carry navigation entries for this section?"""
+    """Does `docs.json` already carry navigation entries for this section?
+
+    Covers the two top-level shapes this repo's `docs.json` can take. A target
+    rooted at `pages`, `anchors`, `dropdowns` or `versions` would read as "not
+    merged" — `merge()` refuses those shapes outright, so the two agree, but
+    both would need extending together.
+    """
     return any(
         path.startswith(section.content_prefix)
         for path in iter_page_paths(docs.get("navigation", {}).get("tabs", []))

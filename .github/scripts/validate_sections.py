@@ -149,9 +149,17 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
+    # Git does not track empty directories, so archiving the last section
+    # deletes `sections/` outright. That PR still matches `paths: sections/**`,
+    # so the report has to exist for the caller to cat — an empty registry is a
+    # valid state, not a crash.
     if not args.sections_dir.is_dir():
-        if not args.list_needing_activation:
-            print(f"No {args.sections_dir}/ directory — nothing to validate.")
+        if args.list_needing_activation:
+            return 0
+        report = f"## Sections registry\n\nNo `{args.sections_dir}/` directory — nothing to validate.\n"
+        print(report)
+        if args.output:
+            args.output.write_text(report, encoding="utf-8")
         return 0
 
     sections = load_all(args.sections_dir)
