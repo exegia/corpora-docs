@@ -1,9 +1,9 @@
 slug: corpora-auth
 repo: exegia/corpora-auth
+branch: main
 docs_path: docs
 label: "Auth"
 icon: lock
-status: pending
+status: active
 requested_by: "@copilot"
 requested_at: "2026-08-08"
-nav_tab: null

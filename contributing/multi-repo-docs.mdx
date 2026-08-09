@@ -4,115 +4,167 @@ description: "How content from separate exegia repositories is aggregated into t
 icon: "git-branch"
 ---
 
-This page records the decisions made in [issue #3](https://github.com/exegia/corpora-docs/issues/3) and serves as the authoritative reference for anyone setting up docs in a new exegia repo.
+This page is the authoritative reference for anyone setting up docs in a new exegia repo.
+
+<Note>
+This supersedes the git-submodule approach from [issue #3](https://github.com/exegia/corpora-docs/issues/3) / [PR #5](https://github.com/exegia/corpora-docs/pull/5), which **does not work** — see [Why not submodules](#why-not-submodules). Direction history is recorded in [issue #9](https://github.com/exegia/corpora-docs/issues/9).
+</Note>
 
 ## Chosen approach
 
-**One Mintlify project, one deploy branch, multiple source directories managed as git submodules.**
+**One Mintlify project. A CI job mirrors each source repo's `docs/` into this repository and merges its navigation.**
 
 Each exegia repository that wants a section on the org docs site:
 
-1. Maintains its own `docs/` directory with `.mdx` files and a local `docs.json` for standalone preview.
-2. Files a _section request_ by opening a PR that adds `sections/<slug>.yml` to this repository (see [Filing a section request](#filing-a-section-request)).
-3. Is pulled into this repository as a git submodule at `content/<slug>/` by the docs maintainer.
-4. Gets its navigation group merged into `docs.json` under the appropriate tab.
+1. Maintains its own `docs/` directory with `.mdx` files and a `docs.json` containing a `navigation` block. This doubles as its standalone preview config.
+2. Files a _section request_ by opening a PR that adds `sections/<slug>.yml` here (see [Filing a section request](#filing-a-section-request)).
+3. Adds a small workflow that pings this repo when its docs change (see [Wiring up the source repo](#wiring-up-the-source-repo)).
 
-Mintlify's GitHub App watches only this repository's `main` branch and rebuilds on every push — no extra CI required.
+From then on it is automatic. The [Mirror sections](https://github.com/exegia/corpora-docs/blob/main/.github/workflows/mirror-sections.yml) workflow clones each active source, copies its docs into `content/<slug>/`, regenerates that section's navigation in `docs.json`, and commits. Mintlify's GitHub App sees the commit and rebuilds.
 
 ### Why this approach
 
 | Option | Verdict |
 |--------|---------|
-| Separate Mintlify projects linked via external anchors | ❌ Requires Enterprise plan for custom subpaths; deep links between sections are fragile. |
-| Single project with submodule-synced content (this approach) | ✅ Free plan compatible, one canonical URL, cross-section linking works natively. |
-| Mirror/copy content at CI time | ❌ Adds CI complexity, creates stale-content risk, and conflicts with Mintlify's GitHub App model. |
+| CI content mirroring (this approach) | ✅ Works on the current plan. Source repos own their content and navigation. Sync state is visible in git rather than in a dashboard. |
+| Git submodules + hand-merged nav | ❌ **Does not work.** Mintlify never checks out the submodule content — [verified](https://github.com/exegia/corpora-docs/pull/12). |
+| Mintlify native multi-repo sources | ❌ Correct solution, but [Enterprise-gated](https://www.mintlify.com/docs/deploy/multi-repo#requirements). Revisit if we ever upgrade. |
+| Separate Mintlify projects linked by anchors | ❌ Fragments the URL structure; deep links between sections are fragile. |
 
-<Note>
-`mint export` (static build for GitHub Pages) is Enterprise-gated. This approach avoids that dependency entirely.
-</Note>
+### Why not submodules
+
+The original strategy added each source repo as a git submodule at `content/<slug>/`. Mintlify's builder clones this repository **without** `--recurse-submodules`, so those directories are empty at build time.
+
+The failure is silent: `docs.json` is processed normally, so the navigation entries render and appear in the sidebar — every one of them leading to a 404. No build error, no dashboard warning. Confirmed empirically in [PR #12](https://github.com/exegia/corpora-docs/pull/12) against a real preview deployment.
+
+Mirroring exists because Mintlify only ever sees one repository. It is also what [Mintlify's own documentation recommends](https://www.mintlify.com/docs/api-playground/sdk-reference-setup#sdk-in-a-separate-repository) for content that lives in another repo.
 
 ## Repository layout
 
 ```text
-corpora-docs/              ← this repo (exegia/corpora-docs)
-├── docs.json              # single source of truth for navigation
-├── sections/              # registry of pending + active section requests
+corpora-docs/                  ← this repo (exegia/corpora-docs)
+├── docs.json                  # site config + own nav + generated section nav
+├── sections/                  # registry of section requests
 │   └── <slug>.yml
-├── content/               # git submodules, one per connected repo
-│   └── <slug>/            # → e.g. exegia/corpora-auth docs/
+├── content/                   # generated — never edit by hand
+│   └── <slug>/                # mirrored from exegia/<repo> docs/
+├── scripts/
+│   └── mirror_sections.py     # the mirror itself
 ├── index.mdx
 ├── quickstart.mdx
-├── project/               # platform docs (owned by this repo)
-└── backend/
+├── project/                   # platform docs (owned by this repo)
+├── backend/
+└── contributing/
 ```
+
+<Warning>
+Everything under `content/` is generated. Edits there are reverted on the next mirror run, and CI fails the PR that made them. Fix the source repo instead.
+</Warning>
 
 ## Filing a section request
 
-Any exegia repo can request a docs section by opening a PR against this repository that adds a file at `sections/<slug>.yml`:
+Open a PR against this repository adding `sections/<slug>.yml`:
 
 ```yaml
 # sections/corpora-auth.yml
-slug: corpora-auth
+slug: corpora-auth        # also the URL segment: /content/corpora-auth/...
 repo: exegia/corpora-auth
-docs_path: docs
-label: "Auth"
+branch: main              # branch to mirror from
+docs_path: docs           # directory in the source repo holding docs.json
+label: "Auth"             # top-level sidebar group name — must be unique
 icon: lock
-status: pending   # pending | active | archived
+status: pending           # pending | active | archived
 requested_by: "@author"
-requested_at: "2026-08-08"
-nav_tab: null     # set by docs maintainer when activating
+requested_at: "YYYY-MM-DD"
 ```
 
-The PR description should link to the source `docs/` directory so the maintainer can review navigation structure before merging.
+### Acceptance gate
+
+A request is accepted once the source repo has, at `docs_path`:
+
+- a valid `docs.json` with a `navigation` block (either `tabs` or `groups`), and
+- at least one `.mdx` page.
+
+There is no navigation review step — the source repo owns its own structure.
 
 ## Activating a section
 
-When a section request is approved, the docs maintainer:
-
 <Steps>
-  <Step title="Add the submodule">
-    ```bash
-    git submodule add https://github.com/exegia/<slug> content/<slug>
-    git submodule update --init --recursive
-    ```
+  <Step title="Set status to active">
+    Change `status: pending` to `status: active` in `sections/<slug>.yml` and merge.
   </Step>
-  <Step title="Connect the Mintlify GitHub App">
-    In the [Mintlify dashboard](https://dashboard.mintlify.com), add the source repo (`exegia/<slug>`) as a connected repository with path `/docs`, then set the deploy branch to `main`.
-
-    Until this step is complete, changes to the submodule source repo will not trigger rebuilds automatically. The workaround is to manually update the submodule pin via a commit to this repo.
+  <Step title="Let the mirror run">
+    Merging to `main` triggers **Mirror sections**. It clones the source, populates `content/<slug>/`, regenerates the navigation, and commits. Run it manually from the Actions tab if you don't want to wait.
   </Step>
-  <Step title="Merge the nav into docs.json">
-    Copy the `navigation.groups` (or `navigation.tabs`) block from the source repo's `docs.json` into this repo's `docs.json`, updating all page paths to be prefixed with `content/<slug>/`.
-
-    Example — if `corpora-auth/docs/index.mdx` becomes `content/corpora-auth/index` in navigation.
-  </Step>
-  <Step title="Update the section YAML">
-    Set `status: active` and fill in `nav_tab` in `sections/<slug>.yml`, then open a PR.
+  <Step title="Wire up the source repo">
+    Add the dispatch workflow below so future changes propagate on their own.
   </Step>
 </Steps>
 
-## Sections registry
+No dashboard step, and nothing to grant Mintlify access to — it only ever reads this repository.
 
-The files in `sections/` are the single source of truth for what repos have requested or hold a docs section:
+## Wiring up the source repo
+
+Without this, a source repo's changes only reach the site on the nightly run.
+
+```yaml
+# <source repo>/.github/workflows/notify-docs.yml
+name: Notify docs site
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**"]
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.CORPORA_DOCS_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/exegia/corpora-docs/dispatches \
+            -f event_type=docs-updated \
+            -F client_payload[repo]="${{ github.repository }}"
+```
+
+`CORPORA_DOCS_DISPATCH_TOKEN` needs `contents: write` on `exegia/corpora-docs`. Set it as an org-level secret so each new source repo doesn't need its own.
+
+## How links work
+
+The mirror rewrites **root-relative links that point at pages within the same section**. A source page linking to `/quickstart` means *its* quickstart; left alone it would land on this site's `/quickstart`. The mirror rewrites it to `/content/<slug>/quickstart`.
+
+Links to anything else — external URLs, or hub pages — are left untouched.
+
+To link **into** a section from elsewhere, use the full mirrored path:
+
+```mdx
+See the [auth quickstart](/content/corpora-auth/quickstart).
+```
+
+## Sections registry
 
 | Status | Meaning |
 |--------|---------|
-| `pending` | Request filed; Mintlify App not yet connected, content not yet submoduled. |
-| `active` | Submodule present, nav merged, App connected — section is live. |
-| `archived` | Previously active; submodule removed and nav entries deleted. |
+| `pending` | Request filed; not yet mirrored. |
+| `active` | Mirrored into `content/<slug>/` and present in the navigation. |
+| `archived` | No longer mirrored. Its `content/<slug>/` directory must be deleted in the same PR that archives it — CI fails on a content directory with no matching section file. |
 
-## Enterprise plan and `mint export`
+## What CI checks
 
-The chosen approach does **not** require the Enterprise plan. `mint export` is only needed for self-hosted / GitHub Pages deployments, which are not used here. The Mintlify GitHub App deployment (free tier) is sufficient.
+[Reconcile sections](https://github.com/exegia/corpora-docs/blob/main/.github/workflows/reconcile-sections.yml) runs on any PR touching `sections/`, `content/`, `docs.json`, or the mirror script, and fails if:
 
-If Mintlify ever changes pricing in a way that breaks this, the fallback is to adopt a CI-driven content mirror (option C above) using a GitHub Actions workflow that copies `docs/` from each source repo into `content/<slug>/` on a schedule or on repository_dispatch.
+- an `active` section has no `content/<slug>/` directory,
+- a `content/<slug>/` directory has no matching `sections/<slug>.yml`,
+- re-running the mirror produces anything different from what is committed — which covers hand-edited `content/`, a hand-edited `docs.json` navigation, and a source repo whose docs have moved on.
 
-## Reconciler
+The mirror also emits a warning for any mirrored page the source's own navigation never references. Those pages deploy and are reachable by URL but appear in no sidebar, which is nearly always an oversight in the source repo.
 
-A lightweight GitHub Actions workflow at `.github/workflows/reconcile-sections.yml` runs on every push to `main` (when `sections/` changes) and:
+## Known limits
 
-1. Reads every `sections/*.yml` file.
-2. For each `status: active` entry, verifies the corresponding submodule exists at `content/<slug>`.
-3. Emits a `::warning` annotation and fails the job if a submodule is missing (activation was not completed).
-
-The reconciler is informational only — it does not push changes or open PRs. A failing job serves as a reminder that a pending activation step needs to be completed.
+- **Staleness window.** A source repo without the dispatch workflow is up to 24 hours stale. With it, propagation takes about a minute.
+- **`label` must be unique** across sections — it is the top-level sidebar group name, and the mirror matches on it when regenerating.
+- **Mirrored pages live under `/content/<slug>/`.** Prettier URLs would need Mintlify's native multi-repo feature (Enterprise) or a redirect layer.
+- **Private source repos** need `DOCS_SOURCES_TOKEN` set on this repo with read access to them. Public sources need no token.
+- **Only pages the source navigation references are mirrored.** A `docs/` directory frequently holds Markdown that isn't documentation — agent `SKILL.md` files, notes, templates — and that content routinely breaks MDX parsing. If a page is missing from the site, check that the source's `docs.json` lists it.
+- **The drift check clones sources live**, so a PR touching only `docs.json` can fail because an unrelated source repo moved on since the last mirror run. Re-run the Mirror sections workflow and rebase.

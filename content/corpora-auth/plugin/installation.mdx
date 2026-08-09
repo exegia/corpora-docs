@@ -1,0 +1,78 @@
+---
+title: "Installation"
+description: "Add the Rust plugin to a Tauri v2 app and install the typed webview bindings."
+---
+
+The plugin has three installable pieces. The Rust crate is required; the bindings are required if the webview needs to authenticate; the React hooks are optional.
+
+## Requirements
+
+| Requirement | Notes |
+| --- | --- |
+| Tauri | v2 |
+| Rust | Whatever your Tauri app already uses |
+| Platforms | macOS, Windows, Linux. Mobile targets are not supported |
+| Supabase | Any GoTrue-backed project: hosted, self-hosted, or a local `supabase start` stack |
+| Node | Required alongside bun — the TypeScript toolchain spawns it |
+
+## The Rust crate
+
+The crate is not on crates.io yet, so consume it as a git dependency.
+
+```toml src-tauri/Cargo.toml
+[dependencies]
+tauri-plugin-supabase-auth = { git = "https://github.com/exegia/corpora-auth" }
+```
+
+Register it on the builder:
+
+```rust src-tauri/src/lib.rs
+tauri::Builder::default()
+    .plugin(tauri_plugin_supabase_auth::init())
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+```
+
+`init()` reads its configuration from `tauri.conf.json` and validates it at startup. If you need to supply a custom WebAuthn ceremony provider, use `PluginBuilder` instead — see [Passkeys](/content/corpora-auth/plugin/passkeys).
+
+## The frontend packages
+
+`@exegia/use-auth` is published to the public npm registry and installs with no extra configuration:
+
+<CodeGroup>
+
+```bash bun
+bun add @exegia/use-auth
+```
+
+```bash npm
+npm install @exegia/use-auth
+```
+
+</CodeGroup>
+
+The bindings package is published there too, so installing it directly needs no registry mapping and no token either:
+
+<CodeGroup>
+
+```bash bun
+bun add @exegia/plugin-supabase-auth
+```
+
+```bash npm
+npm install @exegia/plugin-supabase-auth
+```
+
+</CodeGroup>
+
+<Note>
+  `@exegia/plugin-supabase-auth` is also published to GitHub Packages at the same version, for projects that already map the `@exegia` scope there. Both registries get every release, and the release pipeline verifies they agree before it tags. Nothing here requires that mapping — if you do use it, point the whole scope at GitHub Packages and give it a token with `read:packages`.
+</Note>
+
+`@exegia/use-auth` declares `react` and `react-dom` 19 as peer dependencies and depends on the bindings package, so installing the hooks pulls the bindings in with it. It ships no stylesheet and no components — nothing to import besides the hooks themselves.
+
+## Next
+
+<Card title="Configuration" icon="settings" href="/content/corpora-auth/plugin/configuration">
+  Point the plugin at your project and tune persistence, refresh, and OAuth ports.
+</Card>

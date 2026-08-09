@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Corpora",
-  "description": "Documentation for Corpora — scholarly text corpus management",
+  "description": "Documentation for Corpora \u2014 scholarly text corpus management",
   "colors": {
     "primary": "#3ECF8E",
     "light": "#5EE0A5",
@@ -13,7 +13,10 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": ["index", "quickstart"]
+        "pages": [
+          "index",
+          "quickstart"
+        ]
       },
       {
         "group": "Project",
@@ -37,6 +40,65 @@
         "group": "Contributing",
         "pages": [
           "contributing/multi-repo-docs"
+        ]
+      },
+      {
+        "group": "Auth",
+        "pages": [
+          {
+            "group": "Get started",
+            "pages": [
+              "content/corpora-auth/index",
+              "content/corpora-auth/quickstart",
+              {
+                "group": "Contributing",
+                "pages": [
+                  "content/corpora-auth/contributing/commands"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Plugin",
+            "pages": [
+              {
+                "group": "Setup",
+                "pages": [
+                  "content/corpora-auth/plugin/installation",
+                  "content/corpora-auth/plugin/configuration",
+                  "content/corpora-auth/plugin/permissions",
+                  "content/corpora-auth/plugin/provider-setup"
+                ]
+              },
+              {
+                "group": "API",
+                "pages": [
+                  "content/corpora-auth/plugin/javascript-api",
+                  "content/corpora-auth/plugin/rust-api",
+                  "content/corpora-auth/plugin/errors"
+                ]
+              },
+              {
+                "group": "Flows",
+                "pages": [
+                  "content/corpora-auth/plugin/oauth",
+                  "content/corpora-auth/plugin/passkeys"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "React",
+            "pages": [
+              {
+                "group": "Hooks",
+                "pages": [
+                  "content/corpora-auth/components/overview",
+                  "content/corpora-auth/components/hooks"
+                ]
+              }
+            ]
+          }
         ]
       }
     ]
