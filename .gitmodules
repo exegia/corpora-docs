@@ -1,0 +1,3 @@
+[submodule "content/corpora-auth"]
+	path = content/corpora-auth
+	url = https://github.com/exegia/corpora-auth

@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Corpora",
-  "description": "Documentation for Corpora — scholarly text corpus management",
+  "description": "Documentation for Corpora \u2014 scholarly text corpus management",
   "colors": {
     "primary": "#3ECF8E",
     "light": "#5EE0A5",
@@ -13,7 +13,10 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": ["index", "quickstart"]
+        "pages": [
+          "index",
+          "quickstart"
+        ]
       },
       {
         "group": "Project",
@@ -37,6 +40,13 @@
         "group": "Contributing",
         "pages": [
           "contributing/multi-repo-docs"
+        ]
+      },
+      {
+        "group": "Auth (submodule probe)",
+        "pages": [
+          "content/corpora-auth/docs/index",
+          "content/corpora-auth/docs/quickstart"
         ]
       }
     ]
