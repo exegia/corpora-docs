@@ -114,21 +114,47 @@ name: Notify docs site
 on:
   push:
     branches: [main]
-    paths: ["docs/**"]
+    paths:
+      - "docs/**"
+  workflow_dispatch:
 
 jobs:
   dispatch:
+    name: Trigger docs mirror
     runs-on: ubuntu-latest
     steps:
-      - env:
+      - name: Check the dispatch token is configured
+        id: token
+        env:
+          GH_TOKEN: ${{ secrets.CORPORA_DOCS_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::CORPORA_DOCS_DISPATCH_TOKEN is not set — skipping. \
+            The docs site will pick this change up on its nightly mirror instead."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch to corpora-docs
+        if: steps.token.outputs.present == 'true'
+        env:
           GH_TOKEN: ${{ secrets.CORPORA_DOCS_DISPATCH_TOKEN }}
         run: |
           gh api repos/exegia/corpora-docs/dispatches \
             -f event_type=docs-updated \
-            -F client_payload[repo]="${{ github.repository }}"
+            -F client_payload[repo]="${{ github.repository }}" \
+            -F client_payload[sha]="${{ github.sha }}"
+          echo "Dispatched — corpora-docs will re-mirror and redeploy."
 ```
 
 `CORPORA_DOCS_DISPATCH_TOKEN` needs `contents: write` on `exegia/corpora-docs`. Set it as an org-level secret so each new source repo doesn't need its own.
+
+<Note>
+The token check is not optional boilerplate. Without it, a repo that adds this workflow before the secret exists gets a red X on **every** docs push. Skipping with a warning means the workflow can be merged ahead of the secret and starts working the moment it appears — and the nightly mirror covers the gap.
+</Note>
+
+Live reference implementation: [`corpora-auth/.github/workflows/notify-docs.yml`](https://github.com/exegia/corpora-auth/blob/main/.github/workflows/notify-docs.yml).
 
 ## How links work
 
