@@ -67,29 +67,51 @@ The PR description should link to the source `docs/` directory so the maintainer
 
 ## Activating a section
 
-When a section request is approved, the docs maintainer:
+Setting `status: active` in `sections/<slug>.yml` and merging to `main` is the trigger. Steps 1 and 3 below then run automatically; step 2 cannot be automated and step 4 is what you just did.
 
 <Steps>
-  <Step title="Add the submodule">
+  <Step title="Add the submodule — automated">
+    `activate-section.yml` runs the equivalent of:
+
     ```bash
     git submodule add https://github.com/exegia/<slug> content/<slug>
     git submodule update --init --recursive
     ```
   </Step>
-  <Step title="Connect the Mintlify GitHub App">
+  <Step title="Connect the Mintlify GitHub App — manual">
     In the [Mintlify dashboard](https://dashboard.mintlify.com), add the source repo (`exegia/<slug>`) as a connected repository with path `/docs`, then set the deploy branch to `main`.
 
-    Until this step is complete, changes to the submodule source repo will not trigger rebuilds automatically. The workaround is to manually update the submodule pin via a commit to this repo.
-  </Step>
-  <Step title="Merge the nav into docs.json">
-    Copy the `navigation.groups` (or `navigation.tabs`) block from the source repo's `docs.json` into this repo's `docs.json`, updating all page paths to be prefixed with `content/<slug>/`.
+    This is dashboard-only — Mintlify exposes no API for it, so no workflow can perform it or check that it was done. **`status: active` therefore does not imply the App is connected.** The automation carries this as an unticked checklist item on the activation PR rather than passing over it silently.
 
-    Example — if `corpora-auth/docs/index.mdx` becomes `content/corpora-auth/index` in navigation.
+    Until it is done, changes to the source repo will not trigger rebuilds; the submodule pin has to be bumped by a commit here instead.
   </Step>
-  <Step title="Update the section YAML">
-    Set `status: active` and fill in `nav_tab` in `sections/<slug>.yml`, then open a PR.
+  <Step title="Merge the nav into docs.json — automated">
+    `merge_nav.py` reads the source repo's `docs.json`, rewrites every page path with the section's prefix, and splices the result into this repo's `docs.json` as a single top-level group named after the section's `label`.
+
+    Nesting under one group rather than flattening is deliberate: Mintlify's `navigation` takes one top-level shape (`tabs` **or** `groups`, not both), and source repos commonly use group names as generic as "Contributing" or "API". One group per section keeps the source hierarchy and cannot collide with this repo's own groups.
+
+    <Warning>
+      A git submodule clones a **whole repository**, so the source's `docs/` directory lands at `content/<slug>/docs/`. Page paths therefore include `docs_path`: `corpora-auth/docs/index.mdx` becomes `content/corpora-auth/docs/index`, not `content/corpora-auth/index`.
+    </Warning>
+  </Step>
+  <Step title="Update the section YAML — the trigger">
+    Set `status: active` (and `nav_tab`, if this site's navigation has been converted to tabs) in `sections/<slug>.yml`, then open a PR. Merging it is what starts the two automated steps.
   </Step>
 </Steps>
+
+### What the automation does and does not do
+
+| Workflow | Trigger | Writes? |
+|----------|---------|---------|
+| `section-request.yml` | PR touching `sections/**` | No — validates the YAML and posts a status comment. Drafts are validated; only the comment waits for ready-for-review. |
+| `activate-section.yml` | Push to `main` touching `sections/**`; `workflow_dispatch` | Yes — but only ever as a **pull request** against `docs.json`, never a push to `main`. Manual runs default to a dry run. |
+| `reconcile-sections.yml` | Push to `main` touching `sections/**` or `docs.json` | No — fails the job when an `active` section is missing its submodule or its navigation. |
+
+Re-running the merge is safe: the previous block for a slug is replaced rather than appended, so activation is idempotent.
+
+<Note>
+  Because `activate-section.yml` opens its PR with `GITHUB_TOKEN`, that PR does not trigger `pull_request` workflows and so arrives without CI. Push an empty commit to it if you want checks to run.
+</Note>
 
 ## Sections registry
 
@@ -98,8 +120,14 @@ The files in `sections/` are the single source of truth for what repos have requ
 | Status | Meaning |
 |--------|---------|
 | `pending` | Request filed; Mintlify App not yet connected, content not yet submoduled. |
-| `active` | Submodule present, nav merged, App connected — section is live. |
+| `active` | Submodule present and nav merged — both enforced by the reconciler. Whether the App is connected is **not** verifiable from here; see step 2 above. |
 | `archived` | Previously active; submodule removed and nav entries deleted. |
+
+Schema, uniqueness and activation rules all live in `.github/scripts/sections.py`, so the PR validator, the reconciler and the activation workflow cannot drift apart on what "valid" means. To see what CI will say before pushing:
+
+```bash
+python3 .github/scripts/validate_sections.py
+```
 
 ## Enterprise plan and `mint export`
 
@@ -109,10 +137,13 @@ If Mintlify ever changes pricing in a way that breaks this, the fallback is to a
 
 ## Reconciler
 
-A lightweight GitHub Actions workflow at `.github/workflows/reconcile-sections.yml` runs on every push to `main` (when `sections/` changes) and:
+A lightweight GitHub Actions workflow at `.github/workflows/reconcile-sections.yml` runs on every push to `main` (when `sections/` or `docs.json` changes) and:
 
-1. Reads every `sections/*.yml` file.
+1. Reads every `sections/*.yml` file and validates its schema, slug format and slug/repo uniqueness.
 2. For each `status: active` entry, verifies the corresponding submodule exists at `content/<slug>`.
-3. Emits a `::warning` annotation and fails the job if a submodule is missing (activation was not completed).
+3. For each `status: active` entry, verifies `docs.json` actually carries `content/<slug>/…` navigation entries.
+4. Emits `::error` annotations, writes a summary table to the job summary, and fails the job if anything is unmet.
 
-The reconciler is informational only — it does not push changes or open PRs. A failing job serves as a reminder that a pending activation step needs to be completed.
+Check 3 exists because 1 and 2 can both pass while the section is invisible: a submodule with no navigation entries ships content nobody can reach.
+
+The reconciler stays read-only by design — it does not push changes or open PRs. A failing job means an activation step was left undone, and the fix belongs in a reviewed PR (`activate-section.yml`) rather than a silent push to `main`.

@@ -1,0 +1,173 @@
+# Write half of section activation.
+#
+# Steps 1 and 3 of "Activating a section" (contributing/multi-repo-docs.mdx):
+# pin the source repo as a submodule under content/<slug>/, and merge its
+# navigation into docs.json with every page path rewritten. Step 2 — connecting
+# the Mintlify GitHub App — is dashboard-only and appears in the PR body as an
+# unticked checklist item instead of being silently skipped.
+#
+# The result is always a pull request, never a push to main: the submodule pin
+# and the nav rewrite are exactly the kind of change a human should read before
+# it reaches the deploy branch.
+
+name: Activate section
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sections/**"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the diff instead of opening a PR"
+        type: boolean
+        default: true
+
+concurrency:
+  group: activate-section
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  activate:
+    name: activate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the activation branch
+      pull-requests: write # open the PR
+    env:
+      # Manual runs default to a dry run so the write path can be exercised
+      # against the real registry without activating anything. Pushes to main
+      # are the real thing.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - run: pip install --disable-pip-version-check pyyaml
+
+      # An invalid registry must never reach the write path — the slug becomes
+      # a clone URL and a filesystem path below.
+      - name: Validate sections registry
+        run: python3 .github/scripts/validate_sections.py
+
+      - name: Find sections needing activation
+        id: find
+        run: |
+          set -euo pipefail
+          slugs=$(python3 .github/scripts/validate_sections.py --list-needing-activation)
+          { echo "slugs<<EOF"; echo "$slugs"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          if [ -z "$slugs" ]; then
+            echo "Every active section already has its submodule and navigation."
+            echo "No activation needed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Needs activation: $slugs"
+          fi
+
+      - name: Activate
+        if: ${{ steps.find.outputs.slugs != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLUGS: ${{ steps.find.outputs.slugs }}
+        run: |
+          set -euo pipefail
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Section YAML is author-controlled text from a PR. Values reach the
+          # shell only through the environment, never through interpolation,
+          # and the slug has already been matched against ^[a-z0-9][a-z0-9-]*$
+          # by the validator above.
+          while IFS= read -r slug; do
+            [ -n "$slug" ] || continue
+            echo "::group::$slug"
+
+            repo=$(python3 -c 'import sys,yaml;print(yaml.safe_load(open(sys.argv[1]))["repo"])' "sections/$slug.yml")
+            docs_path=$(python3 -c 'import sys,yaml;print(yaml.safe_load(open(sys.argv[1]))["docs_path"])' "sections/$slug.yml")
+            branch="docs/activate-$slug"
+
+            git checkout -B "$branch" origin/main
+
+            # Step 1 — pin the source repo. Both .gitmodules and the gitlink
+            # have to travel in the same commit or the submodule is unusable.
+            if [ ! -d "content/$slug" ]; then
+              git submodule add --force \
+                "https://github.com/$repo" "content/$slug"
+              git submodule update --init --recursive "content/$slug"
+            fi
+
+            source_json="content/$slug/${docs_path%/}/docs.json"
+            if [ ! -f "$source_json" ]; then
+              echo "::error file=sections/$slug.yml::$repo has no docs.json at ${docs_path%/}/ — cannot merge navigation"
+              exit 1
+            fi
+
+            # Step 3 — rewrite page paths and splice into docs.json.
+            python3 .github/scripts/merge_nav.py merge \
+              --section "sections/$slug.yml" --source "$source_json" --diff --write
+
+            # Reset hard rather than restoring selectively: `git submodule add`
+            # touches .gitmodules, the index and the working tree, and the next
+            # iteration's `checkout -B` needs a clean tree. The runner is
+            # ephemeral, so there is nothing here worth preserving.
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Dry run — not committing."
+              git diff --stat HEAD || true
+              git submodule deinit -f "content/$slug" >/dev/null 2>&1 || true
+              git reset --hard origin/main
+              git clean -ffd content
+              echo "::endgroup::"
+              continue
+            fi
+
+            git add .gitmodules "content/$slug" docs.json
+            git commit -m "docs: activate $slug section
+
+          Pins $repo at content/$slug and merges its navigation into docs.json.
+
+          Automated by .github/workflows/activate-section.yml."
+            git push --force-with-lease origin "$branch"
+
+            # The App connection is the one step no API can perform, so it is
+            # the PR's first line rather than a footnote. An 'active' status
+            # must not be read as 'the App is connected'.
+            cat > body.md <<BODY
+          Activates the \`$slug\` docs section, per \`sections/$slug.yml\`.
+
+          - [x] **Step 1 — submodule pinned** at \`content/$slug\` → \`$repo\`
+          - [ ] **Step 2 — connect the Mintlify GitHub App** — *manual, dashboard-only*
+          - [x] **Step 3 — navigation merged** into \`docs.json\` under \`content/$slug/${docs_path%/}/\`
+          - [x] **Step 4 — section YAML** already marked \`status: active\`
+
+          ## Before merging
+
+          There is no API for step 2. In the [Mintlify dashboard](https://dashboard.mintlify.com),
+          add \`$repo\` as a connected repository with path \`/${docs_path%/}\` and deploy
+          branch \`main\`. Until that is done, edits in \`$repo\` will not rebuild this
+          site — the submodule pin here has to be bumped by hand instead.
+
+          Review the navigation diff below: page paths were rewritten mechanically
+          from the source repo's \`docs.json\`, and any page missing from that file
+          is missing here too.
+
+          ---
+          Opened by \`.github/workflows/activate-section.yml\`. Note that PRs opened
+          with \`GITHUB_TOKEN\` do not trigger \`pull_request\` workflows, so this PR
+          has no CI — push an empty commit to it if you want checks to run.
+          BODY
+
+            gh pr create --base main --head "$branch" \
+              --title "docs: activate $slug section" --body-file body.md \
+              || gh pr edit "$branch" --body-file body.md
+            rm -f body.md
+            echo "::endgroup::"
+          done <<< "$SLUGS"
