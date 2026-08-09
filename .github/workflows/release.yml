@@ -4,33 +4,29 @@
 
 # Nothing is re-tested here — the exact tree being released already passed
 
-# `check` and `package` on the release PR
+# `guard` and `check` on the release PR
 
 #
 
-# There is no deploy job. Both Vercel projects (the API at the repo root and
+# There is no deploy job. The site is built and published by the Mintlify
 
-# the web example under example/) are wired to Vercel's Git integration, which
+# GitHub App, which watches main directly; a deploy step here would either
 
-# already deploys a preview for every release-branch push and production for
-
-# the trunk. A CLI deploy here would double-fire on every commit, and
-
-# `--prebuilt` is not viable for the Python runtime anyway — Vercel's build
-
-# image is what supplies uv
+# double-publish or race it
 
 #
 
-# Everything downstream hangs off the tag `make tag-release` pushes
+# The tag `make tag-release` pushes is currently the end of the line — it marks
 
-# publish.yml sends the wheel to PyPI and build-sidecar.yml builds the signed
+# the release and nothing is triggered by it. It is still created with the
 
-# per-platform bundles. Both are `push: tags: v*` workflows, and events raised
+# automation App's token rather than GITHUB_TOKEN, because events raised by
 
-# by GITHUB_TOKEN do not start workflow runs — so the tag MUST be created with
+# GITHUB_TOKEN do not start workflow runs: anything later hung off `push: tags`
 
-# the automation App's token or both go silently dead
+# would go silently dead, and that failure is invisible until someone notices
+
+# a release that never shipped
 
 #
 

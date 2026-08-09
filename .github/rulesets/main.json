@@ -70,9 +70,6 @@
           },
           {
             "context": "check"
-          },
-          {
-            "context": "package"
           }
         ],
         "strict_required_status_checks_policy": true
