@@ -117,9 +117,8 @@ jobs:
           fetch-tags: true
           token: ${{ steps.app-token.outputs.token }}
 
-      # `make release-branch` re-locks: uv.lock pins the workspace versions.
-      - uses: ./.github/actions/setup
-
+      # No toolchain setup: `make release-branch` writes VERSION and pushes.
+      # There is no lockfile to re-resolve in a docs repo.
       - name: Open the next release branch
         env:
           BUMP: ${{ inputs.bump || 'minor' }}

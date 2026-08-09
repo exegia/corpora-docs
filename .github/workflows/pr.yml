@@ -57,34 +57,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
+
+      # Not `./.github/actions/setup`: that provisions uv against uv.lock and
+      # .python-version, which belong to the packaged repo this workflow was
+      # copied from. A docs repo has no lockfile — `make ci` is a stdlib
+      # interpreter plus the one dependency the section scripts import, pinned
+      # the same way section-request.yml pins it.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install --disable-pip-version-check pyyaml
+
       - run: make ci
 
-# The release PR's third gate is the publishable artifact itself: corpora-py
+# There is no `package` job. The repo publishes a documentation site through
 
-# ships as one self-contained wheel that bundles every workspace member's
+# Mintlify's own build, not an artifact — the release PR's gates are the guard
 
-# source, and the tag pushed after this merge is what triggers the PyPI
-
-# publish. If `uv build` cannot produce that wheel here, the publish would
-
-# fail after the merge, on protected main
-
-  package:
-    name: package
-    # See the guard job for why this is not `github.base_ref`.
-    if: ${{ !github.event.pull_request.draft && github.event.pull_request.base.ref == 'main' }}
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-      - run: make pack
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: corpora-py-wheel
-          path: dist/*.whl
-          if-no-files-found: error
+# and the check, and the deploy happens after the merge, outside Actions
 
   review:
     name: review
