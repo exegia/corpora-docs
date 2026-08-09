@@ -4,47 +4,77 @@ description: "How content from separate exegia repositories is aggregated into t
 icon: "git-branch"
 ---
 
-This page records the decisions made in [issue #3](https://github.com/exegia/corpora-docs/issues/3) and serves as the authoritative reference for anyone setting up docs in a new exegia repo.
+This page is the authoritative reference for anyone setting up docs in a new exegia repo.
+
+<Note>
+This supersedes the git-submodule approach originally decided in [issue #3](https://github.com/exegia/corpora-docs/issues/3) and shipped in [PR #5](https://github.com/exegia/corpora-docs/pull/5). The direction change is recorded in [issue #9](https://github.com/exegia/corpora-docs/issues/9#issuecomment-5230932859).
+</Note>
 
 ## Chosen approach
 
-**One Mintlify project, one deploy branch, multiple source directories managed as git submodules.**
+**One Mintlify project, using [Mintlify's native multi-repository deployments](https://www.mintlify.com/docs/deploy/multi-repo).**
 
 Each exegia repository that wants a section on the org docs site:
 
-1. Maintains its own `docs/` directory with `.mdx` files and a local `docs.json` for standalone preview.
+1. Maintains its own `docs/` directory containing `.mdx` files **and a valid `docs.json` with a `navigation` block**. This doubles as its standalone preview config.
 2. Files a _section request_ by opening a PR that adds `sections/<slug>.yml` to this repository (see [Filing a section request](#filing-a-section-request)).
-3. Is pulled into this repository as a git submodule at `content/<slug>/` by the docs maintainer.
-4. Gets its navigation group merged into `docs.json` under the appropriate tab.
+3. Is added as a **source** in this project's Mintlify Git settings by the docs maintainer, with its own URL path.
 
-Mintlify's GitHub App watches only this repository's `main` branch and rebuilds on every push — no extra CI required.
+Mintlify then pulls from each source repo directly and rebuilds the combined site. **No content is mirrored into `corpora-docs`** — there is no submodule to pin, no navigation to hand-copy, and nothing to keep in sync when a source repo ships a release or updates a page.
 
 ### Why this approach
 
 | Option | Verdict |
 |--------|---------|
-| Separate Mintlify projects linked via external anchors | ❌ Requires Enterprise plan for custom subpaths; deep links between sections are fragile. |
-| Single project with submodule-synced content (this approach) | ✅ Free plan compatible, one canonical URL, cross-section linking works natively. |
+| Native multi-repo sources (this approach) | ✅ Zero content duplication; each repo owns its own pages and navigation; one canonical URL; rebuilds happen automatically on every push to a source repo. |
+| Git submodules + hand-merged `docs.json` nav (superseded) | ❌ Every source-repo change needs a submodule pin bump in this repo, and every nav change needs a manual re-copy into this repo's `docs.json`. |
 | Mirror/copy content at CI time | ❌ Adds CI complexity, creates stale-content risk, and conflicts with Mintlify's GitHub App model. |
+| Separate Mintlify projects linked via external anchors | ❌ Deep links between sections are fragile and the URL structure fragments across subdomains. |
 
-<Note>
-`mint export` (static build for GitHub Pages) is Enterprise-gated. This approach avoids that dependency entirely.
-</Note>
+## Requirements
+
+Per [Mintlify's documentation](https://www.mintlify.com/docs/deploy/multi-repo#requirements), multi-repository deployments require:
+
+- An **Enterprise plan**.
+- Admin access to the Mintlify project.
+- A `docs.json` file in each repository source.
+- All sources on the **same Git provider** — all GitHub for us. Adding a source from a different provider removes all existing sources of the other type.
+
+<Warning>
+The Enterprise-plan requirement is a hard gate on this approach and replaces the earlier claim that the strategy was free-tier compatible. Confirm the org's plan tier before promising a section to a requesting repo.
+</Warning>
 
 ## Repository layout
 
 ```text
-corpora-docs/              ← this repo (exegia/corpora-docs)
-├── docs.json              # single source of truth for navigation
+corpora-docs/              ← this repo (exegia/corpora-docs) — the base source
+├── docs.json              # site-level config + this repo's own navigation
 ├── sections/              # registry of pending + active section requests
 │   └── <slug>.yml
-├── content/               # git submodules, one per connected repo
-│   └── <slug>/            # → e.g. exegia/corpora-auth docs/
 ├── index.mdx
 ├── quickstart.mdx
 ├── project/               # platform docs (owned by this repo)
-└── backend/
+├── backend/
+└── contributing/
 ```
+
+Source repos keep their content in their own repositories. Nothing from them lands here.
+
+### Base source
+
+`corpora-docs` is the **base source**. Its `docs.json` controls site-level configuration — theme, colors, logo, site name, and top-level navigation. Each additional source contributes its own navigation from its own `docs.json`, and Mintlify merges those into the unified site navigation under that source's URL path.
+
+This is why there is no nav hand-copy step: a source repo's navigation is authored once, in that repo.
+
+## URL paths
+
+Every source is served under a URL path configured in the dashboard — e.g. a source at path `auth` serves at `docs.exegia.com/auth`.
+
+<Warning>
+URL paths must be unique and **must not overlap**. You cannot have one source at `/docs` and another at `/docs/api`. Only one source may use the root path (`/`) — that is `corpora-docs`, the base source.
+</Warning>
+
+Default convention: **a section's URL path is its slug** (`sections/corpora-auth.yml` → `url_path: auth`), which keeps paths flat and non-overlapping by construction. A formal org-wide convention is still an open question tracked in [#9](https://github.com/exegia/corpora-docs/issues/9); until it is settled, the maintainer confirms non-overlap by hand when adding a source.
 
 ## Filing a section request
 
@@ -54,42 +84,49 @@ Any exegia repo can request a docs section by opening a PR against this reposito
 # sections/corpora-auth.yml
 slug: corpora-auth
 repo: exegia/corpora-auth
-docs_path: docs
+branch: main            # branch Mintlify deploys this source from
+docs_subdirectory: /docs # path to the dir containing docs.json; null if at repo root
+url_path: auth          # must not overlap any other source's path
 label: "Auth"
 icon: lock
-status: pending   # pending | active | archived
+status: pending         # pending | active | archived
 requested_by: "@author"
-requested_at: "2026-08-08"
-nav_tab: null     # set by docs maintainer when activating
+requested_at: "YYYY-MM-DD"
 ```
 
-The PR description should link to the source `docs/` directory so the maintainer can review navigation structure before merging.
+### Acceptance gate
+
+A request is accepted once the source repo already has a **valid `docs.json` with a `navigation` block** at `docs_subdirectory` (or at the repo root), and its `url_path` does not overlap an existing source. There is no navigation review step — the source repo owns its own navigation.
 
 ## Activating a section
 
-When a section request is approved, the docs maintainer:
+Adding a Git source is a **dashboard-only** action. Mintlify's integrations are read-only by API design (confirmed via `integrations.listAvailableIntegrations` — integrations "never write back to the external service", and connecting happens only in the dashboard), so this cannot be automated.
 
 <Steps>
-  <Step title="Add the submodule">
-    ```bash
-    git submodule add https://github.com/exegia/<slug> content/<slug>
-    git submodule update --init --recursive
-    ```
+  <Step title="Grant the Mintlify GitHub App access to the source repo">
+    The Mintlify GitHub App must have access to `exegia/<repo>` before it can be added as a source.
   </Step>
-  <Step title="Connect the Mintlify GitHub App">
-    In the [Mintlify dashboard](https://dashboard.mintlify.com), add the source repo (`exegia/<slug>`) as a connected repository with path `/docs`, then set the deploy branch to `main`.
+  <Step title="Add the repository as a source">
+    In [Git Settings](https://app.mintlify.com/settings/deployment/git-settings), click **Add repository**, then select the repository and branch from `sections/<slug>.yml`.
 
-    Until this step is complete, changes to the submodule source repo will not trigger rebuilds automatically. The workaround is to manually update the submodule pin via a commit to this repo.
+    If `docs.json` is not at the repo root, enable the **docs.json is in a subdirectory** toggle and enter the path (e.g. `/docs`, no trailing slash).
   </Step>
-  <Step title="Merge the nav into docs.json">
-    Copy the `navigation.groups` (or `navigation.tabs`) block from the source repo's `docs.json` into this repo's `docs.json`, updating all page paths to be prefixed with `content/<slug>/`.
-
-    Example — if `corpora-auth/docs/index.mdx` becomes `content/corpora-auth/index` in navigation.
+  <Step title="Set the URL path">
+    Enter the `url_path` from the section YAML. Paths normalize automatically when saved.
+  </Step>
+  <Step title="Save changes">
+    Click **Save changes**. Saving triggers a deployment of the combined site.
   </Step>
   <Step title="Update the section YAML">
-    Set `status: active` and fill in `nav_tab` in `sections/<slug>.yml`, then open a PR.
+    Set `status: active` in `sections/<slug>.yml` and open a PR.
   </Step>
 </Steps>
+
+After activation, the source repo needs nothing further from us: Mintlify rebuilds from the live repo on every push to its configured branch.
+
+## Linking across sections
+
+Cross-source links must be **root-relative**, not relative — e.g. `/auth/reference/tokens`, not `../reference/tokens`. Relative links do not resolve across sources.
 
 ## Sections registry
 
@@ -97,22 +134,14 @@ The files in `sections/` are the single source of truth for what repos have requ
 
 | Status | Meaning |
 |--------|---------|
-| `pending` | Request filed; Mintlify App not yet connected, content not yet submoduled. |
-| `active` | Submodule present, nav merged, App connected — section is live. |
-| `archived` | Previously active; submodule removed and nav entries deleted. |
-
-## Enterprise plan and `mint export`
-
-The chosen approach does **not** require the Enterprise plan. `mint export` is only needed for self-hosted / GitHub Pages deployments, which are not used here. The Mintlify GitHub App deployment (free tier) is sufficient.
-
-If Mintlify ever changes pricing in a way that breaks this, the fallback is to adopt a CI-driven content mirror (option C above) using a GitHub Actions workflow that copies `docs/` from each source repo into `content/<slug>/` on a schedule or on repository_dispatch.
+| `pending` | Request filed; not yet added as a source in the Mintlify dashboard. |
+| `active` | Added as a source with a URL path — section is live. |
+| `archived` | Previously active; source removed from the dashboard. |
 
 ## Reconciler
 
-A lightweight GitHub Actions workflow at `.github/workflows/reconcile-sections.yml` runs on every push to `main` (when `sections/` changes) and:
+<Warning>
+`.github/workflows/reconcile-sections.yml` still reflects the superseded submodule flow — it checks for a `content/<slug>` directory that this approach never creates. Its rework, along with the validation workflow scope, is tracked in [#9](https://github.com/exegia/corpora-docs/issues/9).
+</Warning>
 
-1. Reads every `sections/*.yml` file.
-2. For each `status: active` entry, verifies the corresponding submodule exists at `content/<slug>`.
-3. Emits a `::warning` annotation and fails the job if a submodule is missing (activation was not completed).
-
-The reconciler is informational only — it does not push changes or open PRs. A failing job serves as a reminder that a pending activation step needs to be completed.
+Note that "is this active section actually configured as a Mintlify source?" is **dashboard state, not repo state**, so it likely cannot be verified from CI at all. What CI *can* check is the acceptance gate: that a requested repo has a valid `docs.json` with navigation, and that its `url_path` does not overlap another section's.

@@ -1,9 +1,12 @@
+# First test case for the native Mintlify multi-repo source flow.
+# See contributing/multi-repo-docs.mdx.
 slug: corpora-auth
 repo: exegia/corpora-auth
-docs_path: docs
+branch: main
+docs_subdirectory: /docs
+url_path: auth
 label: "Auth"
 icon: lock
 status: pending
 requested_by: "@copilot"
 requested_at: "2026-08-08"
-nav_tab: null
