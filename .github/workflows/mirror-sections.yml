@@ -1,0 +1,61 @@
+# Pulls docs from every active source repo into content/<slug>/ and commits the
+# result. Mintlify builds from this repo alone and does not resolve submodules
+# (see PR #12), so mirrored content has to be committed here to reach the build.
+#
+# The commit itself is what publishes: Mintlify's GitHub App rebuilds on push.
+name: Mirror sections
+
+on:
+  repository_dispatch:
+    types: [docs-updated]   # sent by source repos on push — see docs for the snippet
+  push:
+    branches: [main]
+    paths:
+      - "sections/**"
+      - "scripts/mirror_sections.py"
+  schedule:
+    # Safety net for sources that never wired up the dispatch, so a section is
+    # at most a day stale rather than stale forever.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: mirror-sections
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Mirror active sections
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyyaml
+
+      - name: Mirror
+        env:
+          # Only needed for private source repos. Omit for an all-public roster.
+          SOURCES_TOKEN: ${{ secrets.DOCS_SOURCES_TOKEN }}
+        run: python3 scripts/mirror_sections.py
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- content docs.json; then
+            echo "No changes — all sections already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content docs.json
+          trigger="${{ github.event_name }}"
+          source="${{ github.event.client_payload.repo || 'all sections' }}"
+          git commit -m "docs: mirror sections (${trigger}: ${source})"
+          git push
+          echo "Pushed — Mintlify will rebuild from this commit."

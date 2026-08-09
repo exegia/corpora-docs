@@ -1,11 +1,18 @@
+# Verifies that the committed mirror matches what sections/*.yml declares.
+#
+# Under the mirror approach this is a genuine repo-state check: content/<slug>/
+# is a real directory in this repository, so CI can see it. (The previous version
+# of this workflow checked for git submodules, which Mintlify never resolved —
+# see PR #12.)
 name: Reconcile sections registry
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
     paths:
       - "sections/**"
+      - "content/**"
+      - "docs.json"
+      - "scripts/mirror_sections.py"
   workflow_dispatch:
 
 jobs:
@@ -16,27 +23,51 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Validate section YAML files
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyyaml
+
+      - name: Check every active section is mirrored
         run: |
           set -euo pipefail
           missing=()
           for f in sections/*.yml; do
             [ -f "$f" ] || continue
-            slug=$(grep '^slug:' "$f" | awk '{print $2}')
-            status=$(grep '^status:' "$f" | awk '{print $2}')
+            slug=$(python3 -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['slug'])" "$f")
+            status=$(python3 -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['status'])" "$f")
             if [ "$status" = "active" ] && [ ! -d "content/$slug" ]; then
-              echo "::warning file=$f::Section '$slug' is active but content/$slug submodule is missing"
+              echo "::error file=$f::Section '$slug' is active but content/$slug is missing"
               missing+=("$slug")
             else
               echo "✓ $slug ($status)"
             fi
           done
           if [ ${#missing[@]} -gt 0 ]; then
-            echo ""
-            echo "The following active sections are missing their submodules: ${missing[*]}"
-            echo "Run: git submodule add https://github.com/exegia/<slug> content/<slug>"
+            echo "Run the Mirror sections workflow to populate: ${missing[*]}"
             exit 1
           fi
+
+      - name: Check no stale content directories
+        run: |
+          set -euo pipefail
+          [ -d content ] || exit 0
+          for dir in content/*/; do
+            [ -d "$dir" ] || continue
+            slug=$(basename "$dir")
+            if [ ! -f "sections/$slug.yml" ]; then
+              echo "::error::content/$slug has no sections/$slug.yml — archived sections must have their content removed"
+              exit 1
+            fi
+          done
+          echo "✓ no orphaned content directories"
+
+      # Re-runs the mirror and fails if anything differs from what is committed.
+      # Catches a hand-edited docs.json, hand-edited content, or a source repo
+      # whose docs moved on without the mirror workflow having run since.
+      - name: Check the committed mirror matches its sources
+        env:
+          SOURCES_TOKEN: ${{ secrets.DOCS_SOURCES_TOKEN }}
+        run: python3 scripts/mirror_sections.py --check

@@ -1,0 +1,153 @@
+---
+title: "Quickstart"
+description: "Install the plugin and bindings, point them at a Supabase project, and sign someone in."
+---
+
+Email/password, magic links and one-time codes work against a fresh local Supabase stack with no extra credentials. OAuth, account linking and passkeys need project configuration described in [Provider setup](/content/corpora-auth/plugin/provider-setup).
+
+## Prerequisites
+
+- A Tauri v2 app with a Rust `src-tauri/` crate
+- A Supabase project (hosted, or a local stack via `supabase start`)
+- A GitHub token with `read:packages` to install the bindings package from GitHub Packages (`@exegia/use-auth` comes from the public npm registry and needs no token)
+
+<Steps>
+<Step title="Install the plugin">
+
+```toml src-tauri/Cargo.toml
+[dependencies]
+tauri-plugin-supabase-auth = { git = "https://github.com/exegia/corpora-auth" }
+```
+
+```rust src-tauri/src/lib.rs
+tauri::Builder::default()
+    .plugin(tauri_plugin_supabase_auth::init())
+```
+
+</Step>
+
+<Step title="Install the frontend packages">
+
+Both packages live on the public npm registry, so this needs no `.npmrc` and no token:
+
+```bash
+bun add @exegia/use-auth        # optional: the React hooks
+bun add @exegia/plugin-supabase-auth
+```
+
+Adding the hooks pulls the bindings in with them — install the bindings on their own only if you are not using React.
+
+</Step>
+
+<Step title="Configure the project">
+
+```json src-tauri/tauri.conf.json
+{
+  "plugins": {
+    "supabase-auth": {
+      "url": "https://your-project.supabase.co",
+      "publishableKey": "your-publishable-or-anon-key"
+    }
+  }
+}
+```
+
+<Warning>
+Never use the service-role key here. It is readable from the app bundle and bypasses row-level security.
+</Warning>
+
+Everything else has defaults — see [Configuration](/content/corpora-auth/plugin/configuration).
+
+</Step>
+
+<Step title="Grant permissions">
+
+```json src-tauri/capabilities/default.json
+{
+  "permissions": ["core:default", "supabase-auth:default"]
+}
+```
+
+`supabase-auth:default` covers the everyday lifecycle. Account mutations such as password reset, profile updates, identity linking and passkey management are opt-in — see [Permissions](/content/corpora-auth/plugin/permissions).
+
+</Step>
+
+<Step title="Sign someone in">
+
+The fastest path from React is the hooks — headless, so the markup is yours:
+
+```tsx
+import { useAuth, useSession } from "@exegia/use-auth";
+
+export default function App() {
+  const { status, user } = useSession();
+  const auth = useAuth();
+
+  if (status === "loading") return <p>Restoring session…</p>;
+  if (status === "signedIn") return <p>Signed in as {user?.email}</p>;
+
+  return (
+    <form
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const result = await auth.signIn({ email, password });
+        if (!result.ok) setError(resolveMessage(result.error));
+      }}
+    >
+      {/* your fields */}
+    </form>
+  );
+}
+```
+
+Or call the bindings directly:
+
+```ts
+import {
+  signUp,
+  signInWithPassword,
+  onAuthStateChange,
+} from "@exegia/plugin-supabase-auth";
+
+await signUp({ email, password });
+await signInWithPassword({ email, password });
+
+const unlisten = await onAuthStateChange(({ event, session }) => {
+  // "SIGNED_IN" | "SIGNED_OUT" | "TOKEN_REFRESHED" | "PASSWORD_RECOVERY" | "IDENTITIES_CHANGED"
+});
+```
+
+And from Rust, symmetrically:
+
+```rust
+use tauri_plugin_supabase_auth::SupabaseAuthExt;
+
+let auth = app.supabase_auth();
+let session = auth.sign_in_with_password("person@example.com", "correct horse battery").await?;
+auth.on_auth_state_change(|payload| println!("auth: {:?}", payload.event));
+```
+
+</Step>
+</Steps>
+
+## Try the example app
+
+The repository ships a runnable multi-window demo wired to every block against a local Supabase stack.
+
+```bash
+git clone https://github.com/exegia/corpora-auth && cd corpora-auth
+make setup                # bun install + toolchain preflight
+make supabase-up          # local stack; mail UI at http://127.0.0.1:54324
+make -C examples/tauri-app dev
+```
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Handle errors" icon="triangle-alert" href="/content/corpora-auth/plugin/errors">
+    Every rejection is a structured `AuthError` with a switchable `kind`.
+  </Card>
+  <Card title="Add social sign-in" icon="globe" href="/content/corpora-auth/plugin/oauth">
+    How the loopback + PKCE round-trip works, and what to allow-list.
+  </Card>
+</Columns>

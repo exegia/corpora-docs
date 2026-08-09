@@ -1,0 +1,51 @@
+---
+title: "Overview"
+description: "@exegia/use-auth: React hooks over the plugin bindings, with no UI of their own."
+---
+
+`@exegia/use-auth` is a set of React hooks that talk to the plugin bindings directly. There is no provider or context to mount, no components, and no stylesheet — the package renders nothing, so every pixel of your auth screens stays yours.
+
+```bash
+bun add @exegia/use-auth
+```
+
+```tsx
+import { useAuth, useSession } from "@exegia/use-auth";
+```
+
+Every hook:
+
+- talks to the plugin directly — no store to configure, no provider to wrap
+- exposes actions that **never throw**: each resolves to `{ ok: true, data } | { ok: false, error }`, so a failure is a branch rather than a `try`/`catch`
+- reports loading, ready and error states explicitly, and never fakes an empty result for a failed load
+- keeps user-facing copy out of your way: `resolveMessage(error, overrides?)` maps an `AuthError` to a string you can override per `AuthErrorKind`
+
+Guards that run outside the React tree — a router loader, a middleware — reach the same actions through [`authActions` and `getSession`](/content/corpora-auth/components/hooks#authactions-and-getsession) rather than a hook.
+
+<Card title="Hooks reference" icon="anchor" href="/content/corpora-auth/components/hooks">
+  `useSession`, `useAuth`, `useOnboarding`, `useOnboardingFlow`, `useIdentities`, `usePasskeys`, plus the hook-free `authActions` / `getSession`
+</Card>
+
+## Permissions
+
+`supabase-auth:default` covers the sign-in lifecycle. Anything that mutates the account is opted into by name:
+
+| What you call | Permission |
+| --- | --- |
+| `useAuth().resetPassword` | `allow-reset-password-for-email` |
+| `useAuth().updateUser`, and every onboarding profile write | `allow-update-user` |
+| `useIdentities()` | `allow-get-identities`, `allow-link-identity`, `allow-unlink-identity` |
+| `usePasskeys()` | `allow-register-passkey`, `allow-list-passkeys`, `allow-rename-passkey`, `allow-delete-passkey`, `allow-get-passkey-capability` |
+
+See [Permissions](/content/corpora-auth/plugin/permissions) for the full set.
+
+## Building the UI
+
+The hooks make no assumptions about your components. Two starting points:
+
+- **`examples/tauri-app`** wires every hook to plain HTML and one small hand-written stylesheet. Nothing but the auth flow is in the way, so it doubles as a reference implementation.
+- **[`@exegia/corpora-ui`](https://github.com/exegia/corpora-ui)** ships presentational auth blocks — login, signup, code entry, passkey management, linked accounts, onboarding — that take data as props and report through callbacks. Pair them with these hooks when you want the screens already designed.
+
+<Note>
+Earlier releases of this package also shipped rendered blocks (`SignInForm`, `OnboardingFlow`, `LinkedAccounts`, …) and a stylesheet. Those moved to `@exegia/corpora-ui` as prop-driven components; the hooks they were built on are unchanged and still live here.
+</Note>

@@ -63,3 +63,5 @@
 /.zencoder/
 /skills/
 /data/
+__pycache__/
+*.py[cod]
