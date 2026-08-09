@@ -1,0 +1,89 @@
+# Read-only half of section activation.
+#
+# A repo requests a docs section by opening a PR that adds sections/<slug>.yml.
+# This validates the request and reports back on the PR. It never writes to the
+# repo — the write path lives in activate-section.yml and runs after merge.
+#
+# Drafts are validated too: an author should see schema errors while still
+# drafting. Only the comment is gated on ready-for-review, so a draft's
+# iterations don't spam the thread.
+
+name: Section request
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - "sections/**"
+      - ".github/scripts/**"
+      - ".github/workflows/section-request.yml"
+
+concurrency:
+  group: section-request-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # to post the status comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - run: pip install --disable-pip-version-check pyyaml
+
+      # Validation of the registry's shape, not of activation state: a PR that
+      # merely files a request has no submodule yet, and demanding one would
+      # make every new request red. activate-section.yml and the reconciler own
+      # the activation invariants.
+      - name: Validate sections registry
+        id: validate
+        run: |
+          set -o pipefail
+          if python3 .github/scripts/validate_sections.py --output report.md; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+          fi
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      # A single comment that gets rewritten in place, so a long-running PR
+      # ends up with one current verdict instead of a stack of stale ones.
+      #
+      # PRs from forks get a read-only token and this step fails; every repo
+      # feeding this site is inside the exegia org, so branch PRs are the only
+      # supported path. `pull_request_target` would fix forks at the cost of
+      # running trusted-context code against untrusted YAML — not worth it.
+      - name: Comment on the PR
+        if: ${{ !github.event.pull_request.draft }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- section-request-report -->"
+        run: |
+          set -euo pipefail
+          { echo "$MARKER"; cat report.md; } > comment.md
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+                 --jq "map(select(.body | startswith(\"$MARKER\"))) | .[0].id // empty")
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" \
+              -F body=@comment.md > /dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+              -F body=@comment.md > /dev/null
+          fi
+
+      - name: Fail if the registry is invalid
+        if: ${{ steps.validate.outputs.result == 'fail' }}
+        run: |
+          echo "sections/ registry is invalid — see the report above."
+          exit 1
