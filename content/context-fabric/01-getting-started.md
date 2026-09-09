@@ -1,0 +1,66 @@
+# Getting Started
+
+> Source: [https://context-fabric.ai/docs/getting-started](https://context-fabric.ai/docs/getting-started)
+
+Context-Fabric is a graph-based corpus engine for annotated text. It handles the kind of linguistic data that makes traditional databases weep: standoff annotation, overlapping hierarchies, millions of interconnected nodes. Built on the proven [Text-Fabric](https://github.com/annotation/text-fabric) data model, it uses memory-mapped storage for production deployments where performance actually matters.
+
+## Installation
+
+Install the core library:
+
+```bash
+pip install context-fabric
+```
+
+For AI agent integration via the Model Context Protocol:
+
+```bash
+pip install context-fabric[mcp]
+```
+
+> **Python Version**: Context-Fabric requires Python 3.10 or later.
+
+## What You Get
+
+The core library provides:
+
+- **Fast Loading** — Memory-mapped arrays mean instant corpus loads after initial compilation. No deserialization overhead.
+- **Graph Navigation** — Traverse containment hierarchies, walk nodes in canonical order, locate slots within structures.
+- **Pattern Search** — Query structural patterns across the entire corpus. Find all verses containing a specific verb form, or all clauses with a particular syntactic structure.
+- **Feature Access** — Linguistic annotations (part of speech, morphology, syntactic roles) available as node and edge features.
+
+The MCP server extends this to AI workflows:
+
+- **Agent-Friendly API** — Ten tools designed for iterative, token-efficient exploration.
+- **Corpus Discovery** — Let Claude or GPT-4 explore what features and node types exist before querying.
+- **Structured Results** — Search returns references, not raw data dumps.
+
+## A Quick Taste
+
+```bash
+# Clone the BHSA corpus (the Hebrew Bible)
+git clone https://github.com/ETCBC/bhsa ~/text-fabric-data/etcbc/bhsa
+```
+
+```python
+import cfabric
+
+# Load it
+CF = cfabric.Fabric(locations='~/text-fabric-data/etcbc/bhsa')
+api = CF.loadAll()
+
+# Find all words with lexeme "MLK" (king)
+results = api.S.search('''
+  word lex=MLK
+''')
+
+# How many?
+print(f"Found {len(list(results))} occurrences")
+```
+
+That's the entire Hebrew Bible—426,555 words, each one tagged with morphology, syntax, and discourse features. Context-Fabric queries all of it in milliseconds.
+
+## Next Steps
+
+- [Loading Your First Corpus](https://context-fabric.ai/docs/getting-started/first-corpus) — Download BHSA and understand the API structure
+- [Exploring Corpus Structure](https://context-fabric.ai/docs/getting-started/basic-exploration) — Discover node types, features, and annotation layers

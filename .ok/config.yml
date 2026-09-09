@@ -61,3 +61,5 @@ contentRules:
     enabled: true
   markdownlint:
     enabled: true
+  okf:
+    enabled: true

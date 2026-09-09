@@ -1,0 +1,244 @@
+# Exploring Corpus Structure
+
+> Source: [https://context-fabric.ai/docs/getting-started/basic-exploration](https://context-fabric.ai/docs/getting-started/basic-exploration)
+
+A corpus is more than its text — it's a graph of annotations, relationships, and metadata. Before querying, you need to know what's there. This page covers systematic corpus exploration: discovering node types, features, and how they connect.
+
+## Node Types
+
+Every node in a Context-Fabric corpus has a type. The `otype` feature tells you what kind of linguistic object a node represents:
+
+```python
+# What node types exist?
+print(api.F.otype.all)
+```
+
+For BHSA, this returns:
+
+```
+('word', 'subphrase', 'phrase_atom', 'phrase', 'clause_atom', 'clause',
+ 'sentence', 'half_verse', 'verse', 'chapter', 'book')
+```
+
+These are ordered from smallest to largest. Words are the slot type — the atomic units that everything else contains.
+
+### Node Type Statistics
+
+The `C.levels` computed data gives you counts and boundaries for each type:
+
+```python
+for ntype, avg_slots, min_node, max_node in api.C.levels.data:
+    count = max_node - min_node + 1
+    print(f"{ntype:15} {count:>8,} nodes  (avg {avg_slots:.1f} slots)")
+```
+
+Output:
+
+```
+word             426,555 nodes  (avg 1.0 slots)
+subphrase         71,487 nodes  (avg 2.4 slots)
+phrase_atom      267,669 nodes  (avg 1.6 slots)
+phrase           253,206 nodes  (avg 1.7 slots)
+clause_atom      115,815 nodes  (avg 3.7 slots)
+clause            88,131 nodes  (avg 4.8 slots)
+sentence          63,720 nodes  (avg 6.7 slots)
+half_verse        45,179 nodes  (avg 9.4 slots)
+verse             23,213 nodes  (avg 18.4 slots)
+chapter              929 nodes  (avg 459.2 slots)
+book                  39 nodes  (avg 10,937.1 slots)
+```
+
+BHSA's 426,555 words are organized into 39 books through a hierarchy of linguistic structures. A typical verse contains about 18 words across multiple clauses.
+
+## Discovering Features
+
+Features are annotations attached to nodes. Not every feature applies to every node type — part of speech only makes sense for words, not chapters.
+
+### Listing All Features
+
+```python
+# Node features (annotations on individual nodes)
+print("Node features:", api.Fall())
+
+# Edge features (relationships between nodes)
+print("Edge features:", api.Eall())
+```
+
+For BHSA, you'll see features like:
+
+- `sp` — Part of speech
+- `lex` — Lexeme
+- `vt` — Verb tense
+- `nu` — Number (singular/plural)
+- `gn` — Gender
+- `function` — Syntactic function (for phrases)
+- `typ` — Clause type
+
+### Feature Metadata
+
+Each feature has metadata describing its purpose and value type:
+
+```python
+# Check metadata for a feature
+CF = api.CF
+sp_info = CF.features['sp']
+print(f"Description: {sp_info.metaData.get('description', 'N/A')}")
+print(f"Value type: {sp_info.metaData.get('valueType', 'str')}")
+```
+
+### Feature Value Distribution
+
+The `freqList()` method shows what values a feature takes and how often:
+
+```python
+# What parts of speech exist, and how common are they?
+for value, count in api.F.sp.freqList()[:10]:
+    print(f"{value:10} {count:>7,}")
+```
+
+Output:
+
+```
+subs       125,282
+prep        70,513
+verb        50,672
+conj        49,970
+art         30,386
+nmpr        23,077
+prps        18,036
+advb        14,698
+adjv         9,902
+prde         5,073
+```
+
+## Which Features Apply Where
+
+Features don't apply uniformly. The `sp` feature exists only on words; the `function` feature exists only on phrases. You can discover this programmatically:
+
+```python
+from cfabric.describe import get_feature_otypes
+
+# Which node types have the 'sp' feature?
+types = get_feature_otypes(api, 'sp')
+print(f"'sp' applies to: {types}")
+
+# Which node types have 'function'?
+types = get_feature_otypes(api, 'function')
+print(f"'function' applies to: {types}")
+```
+
+> **Sampling Strategy**: `get_feature_otypes` samples nodes from each type range rather than checking every node. This makes it fast even for large corpora.
+
+## Comprehensive Corpus Description
+
+For a complete overview, use the description utilities:
+
+```python
+from cfabric.describe import describe_corpus, describe_feature
+
+# Get full corpus description
+info = describe_corpus(api, name="BHSA")
+print(f"Node types: {len(info.node_types)}")
+print(f"Node features: {len(info.features)}")
+print(f"Edge features: {len(info.edge_features)}")
+```
+
+For detailed information about a specific feature:
+
+```python
+# Deep dive on a single feature
+sp_info = describe_feature(api, 'sp')
+print(f"Feature: {sp_info.name}")
+print(f"Kind: {sp_info.kind}")
+print(f"Applies to: {sp_info.node_types}")
+print(f"Unique values: {sp_info.unique_values}")
+print("Top values:")
+for sample in sp_info.sample_values[:5]:
+    print(f"  {sample['value']:10} ({sample['count']:,})")
+```
+
+## Section Structure
+
+Most corpora have a section structure — a human-readable way to reference locations. In BHSA, it's book/chapter/verse:
+
+```python
+# What section levels exist?
+print(api.T.sectionTypes)  # ('book', 'chapter', 'verse')
+
+# Get section reference for a word
+word = 1000
+section = api.T.sectionFromNode(word)
+print(f"Word {word} is in {section}")  # ('Genesis', 1, 14)
+
+# Go the other direction
+node = api.T.nodeFromSection(('Genesis', 1, 1))
+print(f"Genesis 1:1 starts at node {node}")
+```
+
+## Text Formats
+
+Corpora often support multiple text representations. BHSA has Hebrew script and transliteration:
+
+```python
+# Get the first word
+word = 1
+
+# Hebrew script
+hebrew = api.T.text(word, fmt='text-orig-plain')
+print(f"Hebrew: {hebrew}")
+
+# Transliteration
+trans = api.T.text(word, fmt='text-trans-plain')
+print(f"Transliteration: {trans}")
+```
+
+The available formats depend on how the corpus was built. Check the `otext` feature metadata for the full list.
+
+## Putting It Together
+
+```python
+from cfabric import Fabric
+from cfabric.describe import describe_corpus, describe_feature
+
+# Load corpus
+CF = Fabric('/path/to/bhsa/tf/c')
+api = CF.loadAll()
+
+# Overview
+info = describe_corpus(api, name="BHSA")
+print(f"Corpus: {info.name}")
+print(f"Total nodes: {sum(nt['count'] for nt in info.node_types):,}")
+
+# Node types
+print("\nNode Types:")
+for nt in info.node_types:
+    marker = " (slots)" if nt['is_slot_type'] else ""
+    print(f"  {nt['type']:15} {nt['count']:>10,}{marker}")
+
+# Interesting features
+print("\nKey Features:")
+for fname in ['sp', 'lex', 'function', 'typ']:
+    fi = describe_feature(api, fname)
+    print(f"  {fname}: {fi.unique_values} unique values, applies to {fi.node_types}")
+
+# Sample query
+print("\nSample: First 5 verbs in Genesis")
+results = api.S.search('''
+  book book=Genesis
+    verse
+      word sp=verb
+''')
+for i, (book, verse, word) in enumerate(results):
+    if i >= 5:
+        break
+    ref = api.T.sectionFromNode(word)
+    lex = api.F.lex.v(word)
+    gloss = api.F.gloss.v(word)
+    print(f"  {ref[0]} {ref[1]}:{ref[2]} — {lex} ({gloss})")
+```
+
+## Next Steps
+
+- [Corpus Discovery Tutorial](https://context-fabric.ai/docs/tutorials/corpus-discovery) — Systematic exploration workflows
+- [Building Queries](https://context-fabric.ai/docs/tutorials/building-queries) — Master the search template syntax
+- [API Reference](https://context-fabric.ai/docs/api/cfabric) — Complete method documentation

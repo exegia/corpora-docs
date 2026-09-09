@@ -1,0 +1,60 @@
+# Architecture
+
+> Source: [https://context-fabric.ai/docs/concepts/architecture](https://context-fabric.ai/docs/concepts/architecture)
+
+Context-Fabric uses memory-mapped storage for predictable performance and efficient multi-corpus analysis.
+
+## Memory-Mapped Storage
+
+Instead of loading corpus data into Python objects, Context-Fabric maps compiled files directly into the process's address space. The operating system handles paging data in and out as needed.
+
+| Characteristic | Context-Fabric | Text-Fabric |
+|---------------|----------------|-------------|
+| Initial load time | Near-instant | Proportional to corpus size |
+| Memory per corpus | ~127 MB | ~677 MB |
+| Multiple corpora | Linear scaling | Superlinear scaling |
+
+This enables:
+
+- **Multi-corpus analysis**: Load Hebrew Bible, Septuagint, Dead Sea Scrolls, and Greek New Testament simultaneously on a laptop
+- **Production deployments**: Predictable resource usage across concurrent requests
+
+## Multi-Process Sharing
+
+Multiple processes reading the same corpus share physical memory pages at the OS level:
+
+```
+Process 1 ─┐
+Process 2 ──┼── Page cache ── .cfm files
+Process 3 ─┘
+```
+
+Four workers don't use four times the memory—they share read-only data through the kernel's [page cache](https://www.kernel.org/doc/html/latest/admin-guide/mm/concepts.html).
+
+### How It Works
+
+Context-Fabric loads arrays with `mmap_mode='r'`, which translates to [`MAP_SHARED`](https://man7.org/linux/man-pages/man2/mmap.2.html) at the OS level. Each process gets its own virtual address mapping, but all mappings point to the same physical pages. This is the same mechanism that allows shared libraries to be loaded once and used by hundreds of processes.
+
+### Measured Overhead
+
+With 4 forked workers on the BHSA corpus (from benchmarks):
+
+| Mode | Total RSS | Per-Worker Overhead |
+|------|-----------|---------------------|
+| Single process | 524 MB | — |
+| Fork (4 workers) | 658 MB | ~34 MB |
+
+The 134 MB total overhead (34 MB × 4) represents Python interpreter state, not corpus data. Without sharing, we'd expect ~2,096 MB.
+
+> **Note on memory pressure**: Under memory pressure, the kernel may evict pages from the page cache. Accessing evicted data triggers a page fault and disk read—trading latency for memory. Resident pages are always shared.
+
+## Benchmark Summary
+
+With 10 corpora loaded simultaneously:
+
+| Metric | Context-Fabric | Text-Fabric |
+|--------|----------------|-------------|
+| Total memory | 1,348 MB | 5,529 MB |
+| Memory variance | ±7 MB | ±949 MB |
+
+For detailed benchmarks and methodology, see the [technical paper](https://context-fabric.ai/docs/paper).

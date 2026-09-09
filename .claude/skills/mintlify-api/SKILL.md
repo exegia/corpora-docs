@@ -16,7 +16,7 @@ Use the Mintlify API to manage documentation sites programmatically. This skill 
 
 All API requests require an API key passed in the `Authorization` header:
 
-```
+```bash
 Authorization: Bearer <your-api-key>
 ```
 
